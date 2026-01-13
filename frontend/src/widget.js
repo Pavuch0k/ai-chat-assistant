@@ -7,6 +7,7 @@
     class ChatWidget {
         constructor() {
             this.isOpen = false;
+            this.sessionId = localStorage.getItem('chat_session_id') || null;
             this.init();
         }
         
@@ -104,13 +105,20 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        message: message
+                        message: message,
+                        session_id: this.sessionId
                     })
                 });
                 
                 const data = await response.json();
                 this.hideTyping();
                 this.addMessage('bot', data.response || 'Извините, произошла ошибка');
+                
+                // Сохраняем session_id для следующих запросов
+                if (data.session_id) {
+                    this.sessionId = data.session_id;
+                    localStorage.setItem('chat_session_id', data.session_id);
+                }
             } catch (error) {
                 this.hideTyping();
                 this.addMessage('bot', 'Извините, не удалось отправить сообщение. Попробуйте позже.');

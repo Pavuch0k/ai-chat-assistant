@@ -53,6 +53,11 @@ def extract_contact_info(text: str) -> dict:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, db: Session = Depends(get_db)):
+    import uuid
+    
+    # Генерируем session_id если не передан
+    session_id = request.session_id or str(uuid.uuid4())
+    
     # Извлекаем контактную информацию из сообщения
     contact_info = extract_contact_info(request.message)
     
@@ -78,33 +83,42 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                     setattr(contact, key, value)
             db.commit()
     
-    # Получаем историю сообщений для контекста (увеличиваем лимит для полного контекста)
+    # Если есть контакт, обновляем все сообщения этой сессии на этот контакт
+    if contact:
+        db.query(Message).filter(Message.session_id == session_id, Message.contact_id == None).update(
+            {"contact_id": contact.id}
+        )
+        db.commit()
+    
+    # Получаем историю сообщений для контекста
     conversation_history = []
     if contact:
-        # Берем последние 50 сообщений для полного контекста
+        # Берем последние 50 сообщений этого контакта
         messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at).limit(50).all()
-        for msg in messages:
-            conversation_history.append({
-                "role": "user" if msg.is_from_user else "assistant",
-                "content": msg.message if msg.is_from_user else msg.response
-            })
     else:
-        # Если контакта нет, ищем по последним сообщениям без контакта (для анонимных пользователей)
-        recent_messages = db.query(Message).filter(Message.contact_id == None).order_by(Message.created_at.desc()).limit(50).all()
-        # Переворачиваем для правильного порядка
-        recent_messages.reverse()
-        for msg in recent_messages:
+        # Если контакта нет, берем сообщения по session_id
+        messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at).limit(50).all()
+    
+    # Формируем историю разговора
+    for msg in messages:
+        if msg.is_from_user:
             conversation_history.append({
-                "role": "user" if msg.is_from_user else "assistant",
-                "content": msg.message if msg.is_from_user else msg.response
+                "role": "user",
+                "content": msg.message
+            })
+        else:
+            conversation_history.append({
+                "role": "assistant",
+                "content": msg.response or ""
             })
     
-    # Получаем ответ от AI
+    # Получаем ответ от AI с учетом истории
     response_text = await ai_service.get_response(request.message, conversation_history)
     
-    # Сохраняем сообщения в БД
+    # Сохраняем сообщения в БД с session_id
     user_message = Message(
         contact_id=contact.id if contact else None,
+        session_id=session_id,
         message=request.message,
         is_from_user=1
     )
@@ -112,6 +126,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     
     bot_message = Message(
         contact_id=contact.id if contact else None,
+        session_id=session_id,
         message=request.message,
         response=response_text,
         is_from_user=0
@@ -119,4 +134,4 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db.add(bot_message)
     db.commit()
     
-    return ChatResponse(response=response_text)
+    return ChatResponse(response=response_text, session_id=session_id)

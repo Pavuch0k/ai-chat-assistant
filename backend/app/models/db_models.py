@@ -16,6 +16,7 @@ class Message(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     contact_id = Column(Integer, nullable=True)
+    session_id = Column(String, nullable=True, index=True)  # Для связывания сообщений одного пользователя
     message = Column(Text)
     response = Column(Text)
     is_from_user = Column(Integer, default=1)  # 1 - от пользователя, 0 - от бота
