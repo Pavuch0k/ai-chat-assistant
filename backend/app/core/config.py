@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     
     # OpenAI
-    openai_api_key: str
+    openai_api_key: str = ""
     openai_proxy_url: Optional[str] = None
     openai_proxy_username: Optional[str] = None
     openai_proxy_password: Optional[str] = None
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = False
 
 settings = Settings()
