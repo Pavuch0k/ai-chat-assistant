@@ -107,6 +107,9 @@ async def admin_panel():
             async function loadContacts() {
                 try {
                     const response = await fetch(`${API_URL}/api/admin/contacts`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const contacts = await response.json();
                     
                     const html = `
@@ -144,6 +147,9 @@ async def admin_panel():
             async function loadAllMessages() {
                 try {
                     const response = await fetch(`${API_URL}/api/admin/messages?limit=100`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const messages = await response.json();
                     
                     const html = `
@@ -179,6 +185,9 @@ async def admin_panel():
             async function loadMessages(contactId) {
                 try {
                     const response = await fetch(`${API_URL}/api/admin/contacts/${contactId}/messages`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     const messages = await response.json();
                     
                     const html = `
