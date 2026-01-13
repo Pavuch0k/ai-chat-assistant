@@ -120,10 +120,8 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(contact)
     elif contact_info:
-        # Ищем существующий контакт по email или телефону
-        if contact_info.get('email'):
-            contact = db.query(Contact).filter(Contact.email == contact_info['email']).first()
-        elif contact_info.get('phone'):
+        # Ищем существующий контакт по телефону
+        if contact_info.get('phone'):
             contact = db.query(Contact).filter(Contact.phone == contact_info['phone']).first()
         
         # Создаем новый контакт если не найден
