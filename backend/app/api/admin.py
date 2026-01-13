@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.db_models import Contact, Message
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -10,9 +10,9 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 class ContactResponse(BaseModel):
     id: int
-    name: str = None
-    email: str = None
-    phone: str = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     created_at: datetime
     
     class Config:
@@ -20,9 +20,9 @@ class ContactResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     id: int
-    contact_id: int = None
+    contact_id: Optional[int] = None
     message: str
-    response: str = None
+    response: Optional[str] = None
     is_from_user: int
     created_at: datetime
     
