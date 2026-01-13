@@ -37,14 +37,16 @@ class AIService:
             "content": message
         })
         
-        proxies = None
+        # Формируем URL прокси с аутентификацией если нужно
+        proxy_url = None
         if self.proxy_url:
-            proxies = {
-                "http://": self.proxy_url,
-                "https://": self.proxy_url
-            }
+            if self.proxy_auth:
+                username, password = self.proxy_auth
+                proxy_url = f"http://{username}:{password}@{self.proxy_url.replace('http://', '')}"
+            else:
+                proxy_url = self.proxy_url
         
-        async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
+        async with httpx.AsyncClient(proxies=proxy_url, timeout=30.0) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
@@ -57,8 +59,7 @@ class AIService:
                         "messages": messages,
                         "temperature": 0.7,
                         "max_tokens": 500
-                    },
-                    auth=self.proxy_auth
+                    }
                 )
                 response.raise_for_status()
                 data = response.json()
