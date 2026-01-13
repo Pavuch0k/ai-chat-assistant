@@ -58,16 +58,49 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     # Генерируем session_id если не передан
     session_id = request.session_id or str(uuid.uuid4())
     
-    # Извлекаем контактную информацию из сообщения
+    # СНАЧАЛА получаем историю сообщений для извлечения контактов из всего разговора
+    previous_messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at).all()
+    
+    # Ищем существующий контакт по session_id из предыдущих сообщений
+    contact = None
+    if previous_messages:
+        # Ищем контакт из предыдущих сообщений этой сессии
+        for msg in previous_messages:
+            if msg.contact_id:
+                contact = db.query(Contact).filter(Contact.id == msg.contact_id).first()
+                if contact:
+                    break
+    
+    # Извлекаем контактную информацию из текущего сообщения И из истории
     contact_info = extract_contact_info(request.message)
     
-    # Сохраняем или обновляем контакт
-    contact = None
-    if contact_info:
+    # Также извлекаем из истории разговора
+    full_conversation_text = request.message
+    for msg in previous_messages:
+        if msg.is_from_user and msg.message:
+            full_conversation_text += " " + msg.message
+    
+    history_contact_info = extract_contact_info(full_conversation_text)
+    
+    # Объединяем информацию (приоритет текущему сообщению)
+    if history_contact_info:
+        for key, value in history_contact_info.items():
+            if value and not contact_info.get(key):
+                contact_info[key] = value
+    
+    # Если нашли контакт из сессии, обновляем его данными
+    if contact:
+        if contact_info:
+            for key, value in contact_info.items():
+                if value and not getattr(contact, key):
+                    setattr(contact, key, value)
+            db.commit()
+            db.refresh(contact)
+    elif contact_info:
         # Ищем существующий контакт по email или телефону
         if contact_info.get('email'):
             contact = db.query(Contact).filter(Contact.email == contact_info['email']).first()
-        elif contact_info.get('phone') and not contact:
+        elif contact_info.get('phone'):
             contact = db.query(Contact).filter(Contact.phone == contact_info['phone']).first()
         
         # Создаем новый контакт если не найден
@@ -82,6 +115,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 if value and not getattr(contact, key):
                     setattr(contact, key, value)
             db.commit()
+            db.refresh(contact)
     
     # Если есть контакт, обновляем все сообщения этой сессии на этот контакт
     if contact:
@@ -99,7 +133,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         # Если контакта нет, берем сообщения по session_id
         messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at).limit(50).all()
     
-    # Формируем историю разговора
+    # Формируем историю разговора (ВАЖНО: исключаем текущее сообщение, оно еще не сохранено)
     for msg in messages:
         if msg.is_from_user:
             conversation_history.append({
