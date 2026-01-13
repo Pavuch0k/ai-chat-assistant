@@ -1,6 +1,7 @@
 import os
 import httpx
 from app.core.config import settings
+from app.services.knowledge_service import knowledge_service
 from typing import Optional
 
 class AIService:
@@ -17,14 +18,19 @@ class AIService:
             )
     
     async def get_response(self, message: str, conversation_history: list = None) -> str:
-        """Получить ответ от OpenAI"""
+        """Получить ответ от OpenAI с использованием базы знаний"""
         if conversation_history is None:
             conversation_history = []
         
-        messages = [
-            {
-                "role": "system",
-                "content": """Ты дружелюбный ассистент службы поддержки. 
+        # Ищем релевантную информацию в базе знаний
+        knowledge_context = ""
+        search_results = knowledge_service.search(message, limit=3)
+        if search_results:
+            knowledge_context = "\n\nРелевантная информация из базы знаний:\n"
+            for i, result in enumerate(search_results, 1):
+                knowledge_context += f"{i}. {result['text']}\n"
+        
+        system_prompt = """Ты дружелюбный ассистент службы поддержки. 
 
 Твоя главная задача - помочь клиенту И собрать его контактные данные (имя и номер телефона).
 
@@ -42,6 +48,14 @@ class AIService:
    - Помни, о чем говорили
 
 4. Будь естественным - не навязывайся, но настойчиво собирай контакты в каждом ответе"""
+        
+        if knowledge_context:
+            system_prompt += knowledge_context
+        
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt
             }
         ]
         

@@ -90,14 +90,14 @@ async def admin_panel():
             <h1>Админ панель - AI Chat Assistant</h1>
             <div class="tabs">
                 <button class="tab active" onclick="showTab('contacts')">Контакты</button>
-                <button class="tab" onclick="showTab('messages')">Сообщения</button>
+                <button class="tab" onclick="showTab('knowledge')">База знаний</button>
             </div>
             <div class="content">
                 <div id="contacts-tab">
                     <div class="loading">Загрузка контактов...</div>
                 </div>
-                <div id="messages-tab" style="display: none;">
-                    <div class="loading">Загрузка сообщений...</div>
+                <div id="knowledge-tab" style="display: none;">
+                    <div class="loading">Загрузка базы знаний...</div>
                 </div>
             </div>
         </div>
@@ -130,7 +130,7 @@ async def admin_panel():
                                         <td>${c.name || '-'}</td>
                                         <td>${c.phone || '-'}</td>
                                         <td>${new Date(c.created_at).toLocaleString('ru-RU')}</td>
-                                        <td><button onclick="loadMessages(${c.id})">История</button></td>
+                                        <td>-</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -142,77 +142,99 @@ async def admin_panel():
                 }
             }
             
-            async function loadAllMessages() {
+            async function loadKnowledge() {
                 try {
-                    const response = await fetch(`${API_URL}/api/admin/messages?limit=100`);
+                    const response = await fetch(`${API_URL}/api/admin/knowledge`);
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
-                    const messages = await response.json();
+                    const documents = await response.json();
                     
                     const html = `
+                        <div style="margin-bottom: 20px;">
+                            <h2>База знаний</h2>
+                            <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx" multiple style="margin-bottom: 10px;">
+                            <button onclick="uploadDocuments()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">Загрузить документы</button>
+                        </div>
                         <table>
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Контакт</th>
-                                    <th>Сообщение</th>
-                                    <th>Ответ</th>
-                                    <th>Дата</th>
+                                    <th>Название</th>
+                                    <th>Тип</th>
+                                    <th>Размер</th>
+                                    <th>Дата загрузки</th>
+                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${messages.map(m => `
+                                ${documents.map(d => `
                                     <tr>
-                                        <td>${m.id}</td>
-                                        <td>${m.contact_id || '-'}</td>
-                                        <td><div class="message-user">${m.message}</div></td>
-                                        <td><div class="message-bot">${m.response || '-'}</div></td>
-                                        <td>${new Date(m.created_at).toLocaleString('ru-RU')}</td>
+                                        <td>${d.id}</td>
+                                        <td>${d.name || '-'}</td>
+                                        <td>${d.type || '-'}</td>
+                                        <td>${d.size || '-'}</td>
+                                        <td>${new Date(d.created_at).toLocaleString('ru-RU')}</td>
+                                        <td><button onclick="deleteDocument(${d.id})" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Удалить</button></td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     `;
-                    document.getElementById('messages-tab').innerHTML = html;
+                    document.getElementById('knowledge-tab').innerHTML = html;
                 } catch (error) {
-                    document.getElementById('messages-tab').innerHTML = '<p style="color: red;">Ошибка загрузки: ' + error + '</p>';
+                    document.getElementById('knowledge-tab').innerHTML = '<p style="color: red;">Ошибка загрузки: ' + error + '</p>';
                 }
             }
             
-            async function loadMessages(contactId) {
+            async function uploadDocuments() {
+                const fileInput = document.getElementById('fileInput');
+                const files = fileInput.files;
+                if (files.length === 0) {
+                    alert('Выберите файлы для загрузки');
+                    return;
+                }
+                
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                }
+                
                 try {
-                    const response = await fetch(`${API_URL}/api/admin/contacts/${contactId}/messages`);
+                    const response = await fetch(`${API_URL}/api/admin/knowledge/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
-                    const messages = await response.json();
-                    
-                    const html = `
-                        <h2>История сообщений контакта #${contactId}</h2>
-                        <button onclick="showTab('contacts')" style="margin-bottom: 20px;">← Назад</button>
-                        <div>
-                            ${messages.map(m => `
-                                <div style="margin: 15px 0;">
-                                    <div class="${m.is_from_user ? 'message-user' : 'message-bot'}">
-                                        <strong>${m.is_from_user ? 'Пользователь' : 'Бот'}:</strong><br>
-                                        ${m.is_from_user ? m.message : m.response}
-                                    </div>
-                                    <small style="color: #999;">${new Date(m.created_at).toLocaleString('ru-RU')}</small>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `;
-                    document.getElementById('contacts-tab').innerHTML = html;
+                    alert('Документы успешно загружены');
+                    loadKnowledge();
                 } catch (error) {
-                    alert('Ошибка загрузки истории: ' + error);
+                    alert('Ошибка загрузки: ' + error);
+                }
+            }
+            
+            async function deleteDocument(id) {
+                if (!confirm('Удалить документ?')) return;
+                try {
+                    const response = await fetch(`${API_URL}/api/admin/knowledge/${id}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    alert('Документ удален');
+                    loadKnowledge();
+                } catch (error) {
+                    alert('Ошибка удаления: ' + error);
                 }
             }
             
             function showTab(tab) {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.getElementById('contacts-tab').style.display = 'none';
-                document.getElementById('messages-tab').style.display = 'none';
+                document.getElementById('knowledge-tab').style.display = 'none';
                 
                 if (tab === 'contacts') {
                     document.querySelector('.tab').classList.add('active');
@@ -220,8 +242,8 @@ async def admin_panel():
                     loadContacts();
                 } else {
                     document.querySelectorAll('.tab')[1].classList.add('active');
-                    document.getElementById('messages-tab').style.display = 'block';
-                    loadAllMessages();
+                    document.getElementById('knowledge-tab').style.display = 'block';
+                    loadKnowledge();
                 }
             }
             

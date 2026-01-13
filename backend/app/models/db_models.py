@@ -20,3 +20,13 @@ class Message(Base):
     response = Column(Text)
     is_from_user = Column(Integer, default=1)  # 1 - от пользователя, 0 - от бота
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Document(Base):
+    __tablename__ = "documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_type = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
