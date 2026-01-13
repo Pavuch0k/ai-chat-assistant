@@ -1,7 +1,176 @@
-// AI Chat Widget
 (function() {
     'use strict';
     
-    // Widget initialization
-    console.log('AI Chat Widget loaded');
+    const API_URL = window.API_URL || 'http://localhost:8000';
+    
+    class ChatWidget {
+        constructor() {
+            this.isOpen = false;
+            this.contactData = null;
+            this.init();
+        }
+        
+        init() {
+            this.createWidget();
+            this.attachEvents();
+        }
+        
+        createWidget() {
+            const widget = document.createElement('div');
+            widget.id = 'ai-chat-widget';
+            widget.className = 'ai-chat-widget';
+            widget.innerHTML = `
+                <div class="chat-button" id="chat-button">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="currentColor"/>
+                    </svg>
+                </div>
+                <div class="chat-window" id="chat-window">
+                    <div class="chat-header">
+                        <h3>AI Ассистент</h3>
+                        <button class="close-button" id="close-button">×</button>
+                    </div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message bot-message">
+                            <div class="message-content">
+                                Привет! Чем могу помочь?
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contact-form" id="contact-form">
+                        <input type="text" id="contact-name" placeholder="Ваше имя" required>
+                        <input type="email" id="contact-email" placeholder="Email" required>
+                        <input type="tel" id="contact-phone" placeholder="Телефон">
+                        <button id="start-chat-btn">Начать общение</button>
+                    </div>
+                    <div class="chat-input-container" id="chat-input-container" style="display: none;">
+                        <input type="text" id="chat-input" placeholder="Введите сообщение...">
+                        <button id="send-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(widget);
+        }
+        
+        attachEvents() {
+            document.getElementById('chat-button').addEventListener('click', () => this.toggleChat());
+            document.getElementById('close-button').addEventListener('click', () => this.toggleChat());
+            document.getElementById('start-chat-btn').addEventListener('click', () => this.startChat());
+            document.getElementById('send-button').addEventListener('click', () => this.sendMessage());
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.sendMessage();
+            });
+        }
+        
+        toggleChat() {
+            this.isOpen = !this.isOpen;
+            const window = document.getElementById('chat-window');
+            if (this.isOpen) {
+                window.classList.add('active');
+            } else {
+                window.classList.remove('active');
+            }
+        }
+        
+        startChat() {
+            const name = document.getElementById('contact-name').value;
+            const email = document.getElementById('contact-email').value;
+            const phone = document.getElementById('contact-phone').value;
+            
+            if (!name || !email) {
+                alert('Пожалуйста, заполните имя и email');
+                return;
+            }
+            
+            this.contactData = { name, email, phone };
+            document.getElementById('contact-form').style.display = 'none';
+            document.getElementById('chat-input-container').style.display = 'flex';
+            this.addMessage('user', `Имя: ${name}, Email: ${email}${phone ? ', Телефон: ' + phone : ''}`);
+        }
+        
+        async sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            if (!this.contactData) {
+                alert('Пожалуйста, сначала заполните контактные данные');
+                return;
+            }
+            
+            this.addMessage('user', message);
+            input.value = '';
+            
+            this.showTyping();
+            
+            try {
+                const response = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        contact: this.contactData
+                    })
+                });
+                
+                const data = await response.json();
+                this.hideTyping();
+                this.addMessage('bot', data.response || 'Извините, произошла ошибка');
+            } catch (error) {
+                this.hideTyping();
+                this.addMessage('bot', 'Извините, не удалось отправить сообщение. Попробуйте позже.');
+                console.error('Error:', error);
+            }
+        }
+        
+        addMessage(type, text) {
+            const messages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.innerHTML = `<div class="message-content">${this.escapeHtml(text)}</div>`;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        showTyping() {
+            const messages = document.getElementById('chat-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'message bot-message';
+            typingDiv.innerHTML = `
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            messages.appendChild(typingDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        hideTyping() {
+            const typing = document.getElementById('typing-indicator');
+            if (typing) typing.remove();
+        }
+        
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+    
+    // Инициализация виджета при загрузке страницы
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => new ChatWidget());
+    } else {
+        new ChatWidget();
+    }
 })();
