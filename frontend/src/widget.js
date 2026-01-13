@@ -7,7 +7,6 @@
     class ChatWidget {
         constructor() {
             this.isOpen = false;
-            this.contactData = null;
             this.init();
         }
         
@@ -38,13 +37,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="contact-form" id="contact-form">
-                        <input type="text" id="contact-name" placeholder="Ваше имя" required>
-                        <input type="email" id="contact-email" placeholder="Email" required>
-                        <input type="tel" id="contact-phone" placeholder="Телефон">
-                        <button id="start-chat-btn">Начать общение</button>
-                    </div>
-                    <div class="chat-input-container" id="chat-input-container" style="display: none;">
+                    <div class="chat-input-container" id="chat-input-container">
                         <input type="text" id="chat-input" placeholder="Введите сообщение...">
                         <button id="send-button">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +53,6 @@
         attachEvents() {
             document.getElementById('chat-button').addEventListener('click', () => this.toggleChat());
             document.getElementById('close-button').addEventListener('click', () => this.toggleChat());
-            document.getElementById('start-chat-btn').addEventListener('click', () => this.startChat());
             document.getElementById('send-button').addEventListener('click', () => this.sendMessage());
             document.getElementById('chat-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.sendMessage();
@@ -77,32 +69,11 @@
             }
         }
         
-        startChat() {
-            const name = document.getElementById('contact-name').value;
-            const email = document.getElementById('contact-email').value;
-            const phone = document.getElementById('contact-phone').value;
-            
-            if (!name || !email) {
-                alert('Пожалуйста, заполните имя и email');
-                return;
-            }
-            
-            this.contactData = { name, email, phone };
-            document.getElementById('contact-form').style.display = 'none';
-            document.getElementById('chat-input-container').style.display = 'flex';
-            this.addMessage('user', `Имя: ${name}, Email: ${email}${phone ? ', Телефон: ' + phone : ''}`);
-        }
-        
         async sendMessage() {
             const input = document.getElementById('chat-input');
             const message = input.value.trim();
             
             if (!message) return;
-            
-            if (!this.contactData) {
-                alert('Пожалуйста, сначала заполните контактные данные');
-                return;
-            }
             
             this.addMessage('user', message);
             input.value = '';
@@ -133,8 +104,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        message: message,
-                        contact: this.contactData
+                        message: message
                     })
                 });
                 
