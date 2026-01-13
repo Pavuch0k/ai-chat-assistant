@@ -18,18 +18,36 @@ def extract_contact_info(text: str) -> dict:
     if emails:
         contact['email'] = emails[0]
     
-    # Телефон
-    phone_pattern = r'[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}'
+    # Телефон (улучшенный паттерн)
+    phone_pattern = r'[\+]?[7-8]?[\s\-\(]?[0-9]{3}[\s\-\)]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}|[\+]?[0-9]{10,15}'
     phones = re.findall(phone_pattern, text)
     if phones:
-        contact['phone'] = phones[0].strip()
+        # Очищаем телефон от лишних символов
+        phone = re.sub(r'[\s\-\(\)]', '', phones[0])
+        if len(phone) >= 10:
+            contact['phone'] = phone
     
-    # Имя (простая эвристика - слова с заглавной буквы в начале)
-    name_pattern = r'\b[А-ЯЁA-Z][а-яёa-z]+\b'
-    names = re.findall(name_pattern, text)
-    if names and not contact.get('name'):
-        # Берем первое подходящее слово как имя
-        contact['name'] = names[0]
+    # Имя - улучшенное распознавание
+    # Паттерны: "меня зовут X", "я X", "это X", "X - мое имя"
+    name_patterns = [
+        r'(?:меня\s+зовут|я\s+|это\s+|мое\s+имя\s+)[А-ЯЁA-Z][а-яёa-z]+',
+        r'[А-ЯЁA-Z][а-яёa-z]+\s+(?:это\s+)?(?:меня|я)',
+        r'\b[А-ЯЁA-Z][а-яёa-z]{2,}\b'  # Просто имя с заглавной буквы
+    ]
+    
+    for pattern in name_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            # Берем первое подходящее слово, исключая служебные
+            exclude_words = ['Меня', 'Зовут', 'Это', 'Мое', 'Имя', 'Я', 'Меня']
+            for match in matches:
+                name = re.sub(r'^(?:меня\s+зовут|я\s+|это\s+|мое\s+имя\s+)', '', match, flags=re.IGNORECASE).strip()
+                name = re.sub(r'\s+(?:это\s+)?(?:меня|я)$', '', name, flags=re.IGNORECASE).strip()
+                if name and name not in exclude_words and len(name) > 2:
+                    contact['name'] = name
+                    break
+            if contact.get('name'):
+                break
     
     return contact
 
@@ -60,11 +78,22 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                     setattr(contact, key, value)
             db.commit()
     
-    # Получаем историю сообщений для контекста
+    # Получаем историю сообщений для контекста (увеличиваем лимит для полного контекста)
     conversation_history = []
     if contact:
-        messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at).limit(10).all()
+        # Берем последние 50 сообщений для полного контекста
+        messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at).limit(50).all()
         for msg in messages:
+            conversation_history.append({
+                "role": "user" if msg.is_from_user else "assistant",
+                "content": msg.message if msg.is_from_user else msg.response
+            })
+    else:
+        # Если контакта нет, ищем по последним сообщениям без контакта (для анонимных пользователей)
+        recent_messages = db.query(Message).filter(Message.contact_id == None).order_by(Message.created_at.desc()).limit(50).all()
+        # Переворачиваем для правильного порядка
+        recent_messages.reverse()
+        for msg in recent_messages:
             conversation_history.append({
                 "role": "user" if msg.is_from_user else "assistant",
                 "content": msg.message if msg.is_from_user else msg.response
