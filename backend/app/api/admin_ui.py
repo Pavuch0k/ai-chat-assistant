@@ -118,7 +118,6 @@ async def admin_panel():
                                 <tr>
                                     <th>ID</th>
                                     <th>Имя</th>
-                                    <th>Email</th>
                                     <th>Телефон</th>
                                     <th>Дата создания</th>
                                     <th>Действия</th>
@@ -129,7 +128,6 @@ async def admin_panel():
                                     <tr>
                                         <td>${c.id}</td>
                                         <td>${c.name || '-'}</td>
-                                        <td>${c.email || '-'}</td>
                                         <td>${c.phone || '-'}</td>
                                         <td>${new Date(c.created_at).toLocaleString('ru-RU')}</td>
                                         <td><button onclick="loadMessages(${c.id})">История</button></td>

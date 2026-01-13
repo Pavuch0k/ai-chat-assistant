@@ -11,7 +11,6 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 class ContactResponse(BaseModel):
     id: int
     name: Optional[str] = None
-    email: Optional[str] = None
     phone: Optional[str] = None
     created_at: datetime
     

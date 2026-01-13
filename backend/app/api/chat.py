@@ -12,12 +12,6 @@ def extract_contact_info(text: str) -> dict:
     """Извлечение контактной информации из текста"""
     contact = {}
     
-    # Email
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    emails = re.findall(email_pattern, text)
-    if emails:
-        contact['email'] = emails[0]
-    
     # Телефон - строгая валидация
     # Российские номера: +7, 8, или начинается с 7/8, затем 10 цифр
     phone_pattern = r'(?:\+?7|8)?[\s\-\(]?(\d{3})[\s\-\)]?(\d{3})[\s\-]?(\d{2})[\s\-]?(\d{2})'
