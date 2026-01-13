@@ -156,6 +156,11 @@
     }
     
     // Инициализация виджета при загрузке страницы
+    // Не загружаем виджет на странице админки
+    if (window.location.pathname.includes('/admin')) {
+        return;
+    }
+    
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => new ChatWidget());
     } else {
