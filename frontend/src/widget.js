@@ -2,6 +2,7 @@
     'use strict';
     
     const API_URL = window.API_URL || 'http://localhost:8000';
+    const MOCK_MODE = window.MOCK_MODE !== false; // По умолчанию включен
     
     class ChatWidget {
         constructor() {
@@ -107,6 +108,23 @@
             input.value = '';
             
             this.showTyping();
+            
+            // Режим заглушки
+            if (MOCK_MODE) {
+                setTimeout(() => {
+                    this.hideTyping();
+                    const mockResponses = [
+                        'Спасибо за ваше сообщение! Я обработаю ваш запрос.',
+                        'Понял, работаю над этим. Можете уточнить детали?',
+                        'Отличный вопрос! Давайте разберемся вместе.',
+                        'Принято к сведению. Что-то еще интересует?',
+                        'Спасибо за обращение! Я передам информацию администратору.'
+                    ];
+                    const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
+                    this.addMessage('bot', randomResponse);
+                }, 1000 + Math.random() * 1000);
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_URL}/api/chat`, {
