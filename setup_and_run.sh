@@ -202,9 +202,9 @@ QDRANT_URL=http://localhost:6333
 
 # OpenAI
 OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_PROXY_URL=http://196.18.1.14:8000
-OPENAI_PROXY_USERNAME=your_proxy_username
-OPENAI_PROXY_PASSWORD=your_proxy_password
+OPENAI_PROXY_URL=http://194.33.32.143:8000
+OPENAI_PROXY_USERNAME=cwKWZA
+OPENAI_PROXY_PASSWORD=C1qhZD
 
 # App
 APP_ENV=development

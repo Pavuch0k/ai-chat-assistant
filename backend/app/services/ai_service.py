@@ -8,9 +8,13 @@ class AIService:
     def __init__(self):
         self.api_key = settings.openai_api_key
         self.base_url = "https://api.openai.com/v1"
-        # Прокси отключен - используется прямое подключение через VPN
-        self.proxy_url = None
-        self.proxy_auth = None
+        # Настройка прокси
+        if settings.openai_proxy_url and settings.openai_proxy_username and settings.openai_proxy_password:
+            # Формат: http://username:password@host:port
+            proxy_host = settings.openai_proxy_url.replace("http://", "").replace("https://", "")
+            self.proxy_url = f"http://{settings.openai_proxy_username}:{settings.openai_proxy_password}@{proxy_host}"
+        else:
+            self.proxy_url = None
     
     async def get_response(self, message: str, conversation_history: list = None, contact_status: str = "") -> str:
         """Получить ответ от OpenAI с использованием базы знаний"""
@@ -79,10 +83,13 @@ class AIService:
             "content": message
         })
         
-        # Прокси отключен - используется прямое подключение
-        proxies = None
+        # Настройка прокси для httpx
+        proxies = {
+            "http://": self.proxy_url,
+            "https://": self.proxy_url
+        } if self.proxy_url else None
         
-        async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
+        async with httpx.AsyncClient(proxies=proxies, timeout=60.0) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
