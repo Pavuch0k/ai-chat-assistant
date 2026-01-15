@@ -60,8 +60,15 @@ async def upload_documents(
                     from pypdf import PdfReader
                     reader = PdfReader(file_path)
                     text = "\n".join([page.extract_text() for page in reader.pages])
-                except:
-                    text = f"Не удалось извлечь текст из PDF: {file.filename}"
+                except Exception as e:
+                    text = f"Не удалось извлечь текст из PDF: {file.filename} - {str(e)}"
+            elif file_ext.lower() in ['.doc', '.docx']:
+                try:
+                    from docx import Document
+                    doc = Document(file_path)
+                    text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                except Exception as e:
+                    text = f"Не удалось извлечь текст из DOC/DOCX: {file.filename} - {str(e)}"
             else:
                 text = f"Формат {file_ext} пока не поддерживается"
             
