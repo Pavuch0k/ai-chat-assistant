@@ -93,10 +93,15 @@ if ! check_command pip3; then
     sudo apt install -y python3-pip || sudo yum install -y python3-pip
 fi
 
-# Проверка python3-venv
-if ! python3 -m venv --help &> /dev/null; then
+# Проверка и установка python3-venv
+if ! python3 -m venv --help &> /dev/null 2>&1; then
     echo -e "${YELLOW}Установка python3-venv...${NC}"
-    sudo apt install -y python3.10-venv || sudo apt install -y python3-venv || sudo yum install -y python3-venv
+    if [[ -f /etc/debian_version ]]; then
+        sudo apt update
+        sudo apt install -y python3.10-venv || sudo apt install -y python3-venv
+    elif [[ -f /etc/redhat-release ]]; then
+        sudo yum install -y python3-venv
+    fi
 fi
 
 # Проверка PostgreSQL
@@ -118,18 +123,29 @@ fi
 # Создание виртуального окружения
 if [ ! -d "venv" ]; then
     echo -e "${YELLOW}Создание виртуального окружения...${NC}"
-    python3 -m venv venv
-    if [ $? -ne 0 ]; then
+    if ! python3 -m venv venv 2>&1; then
         echo -e "${RED}Ошибка создания виртуального окружения${NC}"
         echo -e "${YELLOW}Попытка установки python3-venv...${NC}"
-        sudo apt install -y python3.10-venv || sudo apt install -y python3-venv
+        if [[ -f /etc/debian_version ]]; then
+            sudo apt update
+            sudo apt install -y python3.10-venv || sudo apt install -y python3-venv
+        elif [[ -f /etc/redhat-release ]]; then
+            sudo yum install -y python3-venv
+        fi
+        echo -e "${YELLOW}Повторная попытка создания виртуального окружения...${NC}"
         python3 -m venv venv
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Не удалось создать виртуальное окружение${NC}"
+            exit 1
+        fi
     fi
+    echo -e "${GREEN}✓${NC} Виртуальное окружение создано"
 fi
 
 # Активация виртуального окружения
 if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
+    echo -e "${GREEN}✓${NC} Виртуальное окружение активировано"
 else
     echo -e "${RED}Ошибка: виртуальное окружение не создано${NC}"
     exit 1
