@@ -58,6 +58,50 @@ SWAGGER_DARK_THEME = """
     .swagger-ui .btn.execute { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
     .swagger-ui .response { background: #151b2e !important; border: 1px solid #1e2742 !important; }
     .swagger-ui .response .curl { background: #0a0e27 !important; color: #e0e6ed !important; }
+    
+    /* Мобильная адаптация */
+    @media (max-width: 768px) {
+        .swagger-ui .wrapper { padding: 10px !important; }
+        .swagger-ui .info { margin: 10px 0 !important; padding: 15px !important; }
+        .swagger-ui .opblock { margin: 10px 0 !important; }
+        .swagger-ui .opblock-summary { padding: 10px !important; }
+        .swagger-ui .opblock-body { padding: 15px !important; }
+        .swagger-ui .parameter__name { font-size: 13px !important; }
+        .swagger-ui .parameter__type { font-size: 12px !important; }
+        .swagger-ui .btn { padding: 8px 16px !important; font-size: 13px !important; }
+        .swagger-ui .scheme-container { padding: 10px !important; }
+        .swagger-ui .opblock-tag { font-size: 18px !important; padding: 10px 0 !important; }
+        .swagger-ui .opblock-description-wrapper { font-size: 13px !important; }
+        .swagger-ui table { font-size: 12px !important; }
+        .swagger-ui .model-title { font-size: 16px !important; }
+        .swagger-ui .prop-name { font-size: 13px !important; }
+        .swagger-ui .prop-type { font-size: 12px !important; }
+    }
+    
+    @media (max-width: 480px) {
+        .swagger-ui .wrapper { padding: 8px !important; }
+        .swagger-ui .info { margin: 8px 0 !important; padding: 12px !important; }
+        .swagger-ui .info .title { font-size: 20px !important; }
+        .swagger-ui .opblock { margin: 8px 0 !important; }
+        .swagger-ui .opblock-summary { padding: 8px !important; font-size: 13px !important; }
+        .swagger-ui .opblock-body { padding: 12px !important; }
+        .swagger-ui .parameter__name { font-size: 12px !important; }
+        .swagger-ui .parameter__type { font-size: 11px !important; }
+        .swagger-ui .btn { padding: 6px 12px !important; font-size: 12px !important; }
+        .swagger-ui .scheme-container { padding: 8px !important; }
+        .swagger-ui .opblock-tag { font-size: 16px !important; padding: 8px 0 !important; }
+        .swagger-ui .opblock-description-wrapper { font-size: 12px !important; }
+        .swagger-ui table { font-size: 11px !important; }
+        .swagger-ui .model-title { font-size: 14px !important; }
+        .swagger-ui .prop-name { font-size: 12px !important; }
+        .swagger-ui .prop-type { font-size: 11px !important; }
+        .swagger-ui input[type=text], .swagger-ui input[type=password], .swagger-ui textarea { 
+            font-size: 14px !important; 
+            padding: 8px !important; 
+        }
+        .swagger-ui .response-col_status { font-size: 12px !important; }
+        .swagger-ui .response-col_description { font-size: 11px !important; }
+    }
 </style>
 """
 

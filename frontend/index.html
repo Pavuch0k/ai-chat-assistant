@@ -55,6 +55,37 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Мобильная адаптация */
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 24px;
+            }
+            h1 {
+                font-size: 36px;
+            }
+            p {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 16px;
+            }
+            h1 {
+                font-size: 28px;
+                margin-bottom: 16px;
+            }
+            p {
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+            p:last-of-type {
+                font-size: 13px;
+                margin-top: 30px;
+            }
+        }
     </style>
     <link rel="stylesheet" href="/src/widget.css">
 </head>
