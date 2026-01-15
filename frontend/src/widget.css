@@ -10,6 +10,8 @@
     right: 20px;
     z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    max-width: 100vw;
+    max-height: 100vh;
 }
 
 .chat-button {
@@ -63,8 +65,10 @@
     position: absolute;
     bottom: 90px;
     right: 0;
-    width: 400px;
-    height: 650px;
+    width: 380px;
+    max-width: calc(100vw - 40px);
+    height: 600px;
+    max-height: calc(100vh - 120px);
     background: #151b2e;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -296,15 +300,35 @@
     }
 }
 
+/* Планшеты и маленькие экраны */
+@media (max-width: 1024px) {
+    .chat-window {
+        width: 360px;
+        max-width: calc(100vw - 30px);
+        height: 550px;
+        max-height: calc(100vh - 110px);
+        bottom: 85px;
+        right: 15px;
+    }
+    
+    .chat-button {
+        width: 60px;
+        height: 60px;
+        bottom: 18px;
+        right: 18px;
+    }
+}
+
 /* Мобильная адаптация */
 @media (max-width: 768px) {
     .chat-window {
-        width: calc(100vw - 20px);
-        max-width: 400px;
-        height: calc(100vh - 100px);
-        max-height: 600px;
+        width: calc(100vw - 24px);
+        max-width: 100%;
+        height: calc(100vh - 90px);
+        max-height: calc(100vh - 90px);
         bottom: 80px;
-        right: 10px;
+        right: 12px;
+        left: 12px;
         border-radius: 16px;
     }
     
@@ -316,11 +340,12 @@
     }
     
     .chat-header {
-        padding: 18px;
+        padding: 16px;
+        flex-shrink: 0;
     }
     
     .chat-header h3 {
-        font-size: 18px;
+        font-size: 17px;
     }
     
     .message-content {
@@ -330,11 +355,14 @@
     }
     
     .chat-messages {
-        padding: 18px;
+        padding: 16px;
+        flex: 1;
+        min-height: 0;
     }
     
     .chat-input-container {
-        padding: 16px;
+        padding: 14px;
+        flex-shrink: 0;
     }
     
     #chat-input {
@@ -343,51 +371,66 @@
     }
     
     #send-button {
-        width: 44px;
-        height: 44px;
+        width: 42px;
+        height: 42px;
     }
 }
 
 @media (max-width: 480px) {
+    .ai-chat-widget {
+        bottom: 12px;
+        right: 12px;
+    }
+    
     .chat-window {
         width: 100vw;
+        width: 100dvw; /* Динамический viewport для мобильных */
         height: 100vh;
+        height: 100dvh; /* Динамический viewport для мобильных */
         bottom: 0;
         right: 0;
+        left: 0;
         border-radius: 0;
         max-width: 100vw;
+        max-width: 100dvw;
         max-height: 100vh;
+        max-height: 100dvh;
     }
     
     .chat-button {
-        width: 56px;
-        height: 56px;
-        bottom: 16px;
-        right: 16px;
+        width: 52px;
+        height: 52px;
+        bottom: 14px;
+        right: 14px;
     }
     
     .chat-header {
-        padding: 16px;
+        padding: 14px 16px;
+        flex-shrink: 0;
     }
     
     .chat-header h3 {
-        font-size: 16px;
+        font-size: 15px;
     }
     
     .message-content {
-        max-width: 90%;
+        max-width: 88%;
         font-size: 13px;
         padding: 10px 14px;
+        line-height: 1.4;
     }
     
     .chat-messages {
-        padding: 16px;
+        padding: 14px;
         gap: 12px;
+        flex: 1;
+        min-height: 0;
     }
     
     .chat-input-container {
         padding: 12px;
         gap: 8px;
+        flex-shrink: 0;
     }
     
     #chat-input {
@@ -396,13 +439,55 @@
     }
     
     #send-button {
-        width: 40px;
-        height: 40px;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
     }
     
     .close-button {
-        width: 32px;
-        height: 32px;
-        font-size: 20px;
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+    }
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 360px) {
+    .chat-button {
+        width: 48px;
+        height: 48px;
+        bottom: 12px;
+        right: 12px;
+    }
+    
+    .chat-header {
+        padding: 12px 14px;
+    }
+    
+    .chat-header h3 {
+        font-size: 14px;
+    }
+    
+    .message-content {
+        font-size: 12px;
+        padding: 9px 12px;
+    }
+    
+    .chat-messages {
+        padding: 12px;
+    }
+    
+    .chat-input-container {
+        padding: 10px;
+    }
+    
+    #chat-input {
+        font-size: 13px;
+        padding: 9px 12px;
+    }
+    
+    #send-button {
+        width: 36px;
+        height: 36px;
     }
 }
