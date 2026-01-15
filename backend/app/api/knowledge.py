@@ -46,15 +46,19 @@ async def upload_documents(
             unique_filename = f"{uuid.uuid4()}{file_ext}"
             file_path = os.path.join(UPLOAD_DIR, unique_filename)
             
+            content = await file.read()
             with open(file_path, "wb") as f:
-                content = await file.read()
                 f.write(content)
             
             # Читаем текст из файла
             text = ""
             if file_ext.lower() == '.txt':
-                with open(file_path, "r", encoding="utf-8") as f:
-                    text = f.read()
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        text = f.read()
+                except UnicodeDecodeError:
+                    with open(file_path, "r", encoding="windows-1251") as f:
+                        text = f.read()
             elif file_ext.lower() == '.pdf':
                 try:
                     from pypdf import PdfReader
@@ -65,9 +69,23 @@ async def upload_documents(
             elif file_ext.lower() in ['.doc', '.docx']:
                 try:
                     from docx import Document
+                    # Открываем файл напрямую по пути
                     doc = Document(file_path)
-                    text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                    paragraphs = []
+                    for paragraph in doc.paragraphs:
+                        if paragraph.text.strip():
+                            paragraphs.append(paragraph.text)
+                    # Также извлекаем текст из таблиц
+                    for table in doc.tables:
+                        for row in table.rows:
+                            for cell in row.cells:
+                                if cell.text.strip():
+                                    paragraphs.append(cell.text)
+                    text = "\n".join(paragraphs)
                 except Exception as e:
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"DOCX error details: {error_details}")
                     text = f"Не удалось извлечь текст из DOC/DOCX: {file.filename} - {str(e)}"
             else:
                 text = f"Формат {file_ext} пока не поддерживается"
