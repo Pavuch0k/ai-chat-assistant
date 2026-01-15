@@ -3,9 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api import chat, admin, admin_ui, knowledge
 from app.db.database import engine, Base
+import os
 
 # Создаем таблицы при запуске
 Base.metadata.create_all(bind=engine)
+
+# Создаем директорию для загрузки файлов
+os.makedirs("/app/uploads", exist_ok=True)
 
 # Монтируем директорию для загрузки файлов
 app = FastAPI(title="AI Chat Assistant API", version="1.0.0")
