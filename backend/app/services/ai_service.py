@@ -68,16 +68,22 @@ class AIService:
             "content": message
         })
         
-        # Формируем URL прокси с аутентификацией если нужно
-        proxy_url = None
+        # Формируем прокси для httpx (нужен словарь)
+        proxies = None
         if self.proxy_url:
             if self.proxy_auth:
                 username, password = self.proxy_auth
-                proxy_url = f"http://{username}:{password}@{self.proxy_url.replace('http://', '')}"
+                # httpx требует формат: http://username:password@host:port
+                proxy_url_with_auth = f"http://{username}:{password}@{self.proxy_url.replace('http://', '').replace('https://', '')}"
             else:
-                proxy_url = self.proxy_url
+                proxy_url_with_auth = self.proxy_url
+            # httpx.AsyncClient требует словарь: {"http://": "proxy_url", "https://": "proxy_url"}
+            proxies = {
+                "http://": proxy_url_with_auth,
+                "https://": proxy_url_with_auth
+            }
         
-        async with httpx.AsyncClient(proxies=proxy_url, timeout=30.0) as client:
+        async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
