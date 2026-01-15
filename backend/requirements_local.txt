@@ -12,6 +12,11 @@ langchain==0.0.350
 langchain-openai==0.0.2
 langchain-community==0.0.10
 qdrant-client==1.7.0
+# CPU-only версия PyTorch для серверов без GPU
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
+torchaudio==2.1.0+cpu
 sentence-transformers==2.2.2
 pypdf==3.17.0
 python-multipart==0.0.6
