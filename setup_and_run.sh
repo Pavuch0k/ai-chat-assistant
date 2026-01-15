@@ -131,8 +131,10 @@ fi
 # Создание виртуального окружения
 if [ ! -d "venv" ]; then
     echo -e "${YELLOW}Создание виртуального окружения...${NC}"
-    if ! python3 -m venv venv 2>&1; then
-        echo -e "${RED}Ошибка создания виртуального окружения${NC}"
+    python3 -m venv venv 2>&1
+    VENV_EXIT_CODE=$?
+    if [ $VENV_EXIT_CODE -ne 0 ]; then
+        echo -e "${RED}Ошибка создания виртуального окружения (код: $VENV_EXIT_CODE)${NC}"
         echo -e "${YELLOW}Попытка установки python3-venv...${NC}"
         if [[ -f /etc/debian_version ]]; then
             sudo apt update
@@ -141,9 +143,11 @@ if [ ! -d "venv" ]; then
             sudo yum install -y python3-venv
         fi
         echo -e "${YELLOW}Повторная попытка создания виртуального окружения...${NC}"
-        python3 -m venv venv
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Не удалось создать виртуальное окружение${NC}"
+        python3 -m venv venv 2>&1
+        VENV_EXIT_CODE=$?
+        if [ $VENV_EXIT_CODE -ne 0 ]; then
+            echo -e "${RED}Не удалось создать виртуальное окружение (код: $VENV_EXIT_CODE)${NC}"
+            echo "Попробуйте установить вручную: sudo apt install -y python3.10-venv"
             exit 1
         fi
     fi
@@ -154,6 +158,18 @@ fi
 if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
     echo -e "${GREEN}✓${NC} Виртуальное окружение активировано"
+elif [ -d "venv" ]; then
+    echo -e "${YELLOW}Виртуальное окружение существует, но activate не найден${NC}"
+    echo "Попытка пересоздания..."
+    rm -rf venv
+    python3 -m venv venv
+    if [ -f "venv/bin/activate" ]; then
+        source venv/bin/activate
+        echo -e "${GREEN}✓${NC} Виртуальное окружение активировано"
+    else
+        echo -e "${RED}Ошибка: виртуальное окружение не создано${NC}"
+        exit 1
+    fi
 else
     echo -e "${RED}Ошибка: виртуальное окружение не создано${NC}"
     exit 1
