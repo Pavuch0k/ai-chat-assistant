@@ -81,32 +81,39 @@ class KnowledgeService:
             print(f"Error adding document to knowledge base: {e}")
             return False
     
-    def search(self, query: str, limit: int = 3) -> List[dict]:
+    def search(self, query: str, limit: int = 5, score_threshold: float = 0.3) -> List[dict]:
         """Поиск в базе знаний"""
         try:
             # Создаем эмбеддинг для запроса
             embedding_model = self._get_embedding_model()
             query_embedding = embedding_model.embed_query(query)
             
-            # Ищем в Qdrant
+            # Ищем в Qdrant (увеличиваем лимит для фильтрации по score)
             results = self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                limit=limit
+                limit=limit * 2  # Берем больше, чтобы отфильтровать по score
             )
             
-            # Формируем результат
+            # Формируем результат и фильтруем по score
             search_results = []
             for result in results:
-                search_results.append({
-                    "text": result.payload.get("text", ""),
-                    "score": result.score,
-                    "metadata": {k: v for k, v in result.payload.items() if k != "text"}
-                })
+                # Косинусное расстояние: чем ближе к 1, тем лучше
+                # Обычно хорошие результаты имеют score > 0.5
+                if result.score >= score_threshold:
+                    search_results.append({
+                        "text": result.payload.get("text", ""),
+                        "score": result.score,
+                        "metadata": {k: v for k, v in result.payload.items() if k != "text"}
+                    })
             
-            return search_results
+            # Сортируем по score (от большего к меньшему) и берем топ limit
+            search_results.sort(key=lambda x: x['score'], reverse=True)
+            return search_results[:limit]
         except Exception as e:
             print(f"Error searching knowledge base: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def delete_document(self, document_id: int) -> bool:

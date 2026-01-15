@@ -19,11 +19,17 @@ class AIService:
         
         # Ищем релевантную информацию в базе знаний
         knowledge_context = ""
-        search_results = knowledge_service.search(message, limit=3)
+        search_results = knowledge_service.search(message, limit=5)  # Увеличиваем лимит до 5
         if search_results:
+            print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
             knowledge_context = "\n\nРелевантная информация из базы знаний:\n"
             for i, result in enumerate(search_results, 1):
+                score = result.get('score', 0)
+                text = result['text'][:500]  # Ограничиваем длину для логов
+                print(f"  Фрагмент {i} (score: {score:.3f}): {text[:100]}...")
                 knowledge_context += f"{i}. {result['text']}\n"
+        else:
+            print(f"Поиск в базе знаний не вернул результатов для запроса: {message[:100]}")
         
         system_prompt = """Ты дружелюбный ассистент службы поддержки. 
 
