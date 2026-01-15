@@ -18,9 +18,8 @@ class KnowledgeService:
             self.qdrant_client = QdrantClient(url=settings.qdrant_url)
         
         self.collection_name = "knowledge_base"
-        self.embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-        )
+        self.embedding_model = None  # Ленивая загрузка
+        self._model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         
         # Создаем коллекцию если не существует
         try:
@@ -30,6 +29,16 @@ class KnowledgeService:
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=384, distance=Distance.COSINE)
             )
+    
+    def _get_embedding_model(self):
+        """Ленивая загрузка модели эмбеддингов"""
+        if self.embedding_model is None:
+            print("Загрузка модели эмбеддингов...")
+            self.embedding_model = HuggingFaceEmbeddings(
+                model_name=self._model_name
+            )
+            print("Модель эмбеддингов загружена")
+        return self.embedding_model
     
     def add_document(self, text: str, document_id: int, metadata: dict = None) -> bool:
         """Добавить документ в базу знаний"""
@@ -43,9 +52,10 @@ class KnowledgeService:
             chunks = text_splitter.split_text(text)
             
             # Создаем эмбеддинги для каждого чанка
+            embedding_model = self._get_embedding_model()
             points = []
             for i, chunk in enumerate(chunks):
-                embedding = self.embedding_model.embed_query(chunk)
+                embedding = embedding_model.embed_query(chunk)
                 point_id = str(uuid.uuid4())
                 
                 point_metadata = {
@@ -75,7 +85,8 @@ class KnowledgeService:
         """Поиск в базе знаний"""
         try:
             # Создаем эмбеддинг для запроса
-            query_embedding = self.embedding_model.embed_query(query)
+            embedding_model = self._get_embedding_model()
+            query_embedding = embedding_model.embed_query(query)
             
             # Ищем в Qdrant
             results = self.qdrant_client.search(
