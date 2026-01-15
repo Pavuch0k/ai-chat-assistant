@@ -353,8 +353,9 @@
         border-radius: 16px;
     }
     
-    /* Скрываем кнопку на планшетах */
-    .chat-button {
+    /* Скрываем кнопку только когда виджет открыт на планшетах */
+    .chat-window.active ~ .chat-button,
+    .chat-window.active + .chat-button {
         display: none;
     }
 }
@@ -382,16 +383,16 @@
         border-radius: 16px;
     }
     
-    /* Скрываем кнопку на мобильных */
-    .chat-button {
+    /* Скрываем кнопку только когда виджет открыт на мобильных */
+    .ai-chat-widget:has(.chat-window.active) .chat-button {
         display: none;
     }
     
     .chat-button {
         width: 56px;
         height: 56px;
-        bottom: 16px;
-        right: 16px;
+        bottom: 8px;
+        right: 8px;
     }
     
     .chat-header {
@@ -458,8 +459,8 @@
         transform: none;
     }
     
-    /* Скрываем кнопку на маленьких мобильных */
-    .chat-button {
+    /* Скрываем кнопку только когда виджет открыт на маленьких мобильных */
+    .ai-chat-widget:has(.chat-window.active) .chat-button {
         display: none;
     }
     
