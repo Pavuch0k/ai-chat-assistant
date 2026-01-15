@@ -8,14 +8,9 @@ class AIService:
     def __init__(self):
         self.api_key = settings.openai_api_key
         self.base_url = "https://api.openai.com/v1"
-        self.proxy_url = settings.openai_proxy_url
+        # Прокси отключен - используется прямое подключение через VPN
+        self.proxy_url = None
         self.proxy_auth = None
-        
-        if settings.openai_proxy_url and settings.openai_proxy_username:
-            self.proxy_auth = (
-                settings.openai_proxy_username,
-                settings.openai_proxy_password or ""
-            )
     
     async def get_response(self, message: str, conversation_history: list = None) -> str:
         """Получить ответ от OpenAI с использованием базы знаний"""
@@ -68,39 +63,8 @@ class AIService:
             "content": message
         })
         
-        # Формируем прокси для httpx (только если прокси доступен)
+        # Прокси отключен - используется прямое подключение
         proxies = None
-        if self.proxy_url:
-            # Проверяем доступность прокси (опционально, можно пропустить)
-            try:
-                import socket
-                proxy_host = self.proxy_url.replace('http://', '').replace('https://', '').split(':')[0]
-                proxy_port = int(self.proxy_url.split(':')[-1]) if ':' in self.proxy_url else 8000
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                result = sock.connect_ex((proxy_host, proxy_port))
-                sock.close()
-                if result != 0:
-                    print(f"Прокси {proxy_host}:{proxy_port} недоступен, используется прямое подключение")
-                    proxies = None
-                else:
-                    if self.proxy_auth:
-                        username, password = self.proxy_auth
-                        proxy_host_full = self.proxy_url.replace('http://', '').replace('https://', '')
-                        proxy_url_with_auth = f"http://{username}:{password}@{proxy_host_full}"
-                        print(f"Используется прокси с аутентификацией: http://{username}:***@{proxy_host_full}")
-                    else:
-                        proxy_url_with_auth = self.proxy_url
-                        print(f"Используется прокси без аутентификации: {proxy_url_with_auth}")
-                    proxies = {
-                        "http://": proxy_url_with_auth,
-                        "https://": proxy_url_with_auth
-                    }
-            except Exception as e:
-                print(f"Ошибка проверки прокси: {e}, используется прямое подключение")
-                proxies = None
-        else:
-            print("Прокси не настроен, используется прямое подключение")
         
         async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
             try:
