@@ -74,14 +74,19 @@ class AIService:
             if self.proxy_auth:
                 username, password = self.proxy_auth
                 # httpx требует формат: http://username:password@host:port
-                proxy_url_with_auth = f"http://{username}:{password}@{self.proxy_url.replace('http://', '').replace('https://', '')}"
+                proxy_host = self.proxy_url.replace('http://', '').replace('https://', '')
+                proxy_url_with_auth = f"http://{username}:{password}@{proxy_host}"
+                print(f"Используется прокси с аутентификацией: http://{username}:***@{proxy_host}")
             else:
                 proxy_url_with_auth = self.proxy_url
+                print(f"Используется прокси без аутентификации: {proxy_url_with_auth}")
             # httpx.AsyncClient требует словарь: {"http://": "proxy_url", "https://": "proxy_url"}
             proxies = {
                 "http://": proxy_url_with_auth,
                 "https://": proxy_url_with_auth
             }
+        else:
+            print("Прокси не настроен, используется прямое подключение")
         
         async with httpx.AsyncClient(proxies=proxies, timeout=30.0) as client:
             try:
@@ -102,7 +107,9 @@ class AIService:
                 data = response.json()
                 return data["choices"][0]["message"]["content"]
             except Exception as e:
+                import traceback
                 print(f"OpenAI API Error: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
                 return "Извините, произошла ошибка при обработке запроса. Попробуйте позже."
 
 ai_service = AIService()
