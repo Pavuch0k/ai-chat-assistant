@@ -119,10 +119,21 @@ fi
 if [ ! -d "venv" ]; then
     echo -e "${YELLOW}Создание виртуального окружения...${NC}"
     python3 -m venv venv
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Ошибка создания виртуального окружения${NC}"
+        echo -e "${YELLOW}Попытка установки python3-venv...${NC}"
+        sudo apt install -y python3.10-venv || sudo apt install -y python3-venv
+        python3 -m venv venv
+    fi
 fi
 
 # Активация виртуального окружения
-source venv/bin/activate
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+else
+    echo -e "${RED}Ошибка: виртуальное окружение не создано${NC}"
+    exit 1
+fi
 
 # Обновление pip
 echo -e "${YELLOW}Обновление pip...${NC}"
