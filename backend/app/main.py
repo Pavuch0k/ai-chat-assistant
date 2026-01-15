@@ -8,12 +8,13 @@ import os
 # Создаем таблицы при запуске
 Base.metadata.create_all(bind=engine)
 
-# Создаем директорию для загрузки файлов
-os.makedirs("/app/uploads", exist_ok=True)
+# Определяем путь для загрузок (локально или в Docker)
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads"))
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Монтируем директорию для загрузки файлов
 app = FastAPI(title="AI Chat Assistant API", version="1.0.0")
-app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

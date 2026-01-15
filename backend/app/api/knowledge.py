@@ -11,7 +11,8 @@ import uuid
 
 router = APIRouter(prefix="/api/admin/knowledge", tags=["knowledge"])
 
-UPLOAD_DIR = "/app/uploads"
+# Определяем путь для загрузок (локально или в Docker)
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class DocumentResponse(BaseModel):
