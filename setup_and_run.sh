@@ -101,8 +101,9 @@ if ! check_command pip3; then
     sudo apt install -y python3-pip || sudo yum install -y python3-pip
 fi
 
-# Проверка и установка python3-venv
-if ! python3 -m venv --help &> /dev/null 2>&1; then
+# Проверка и установка python3-venv (проверяем ensurepip, а не просто venv)
+echo -e "${YELLOW}Проверка python3-venv...${NC}"
+if ! python3 -c "import ensurepip" 2>/dev/null; then
     echo -e "${YELLOW}Установка python3-venv...${NC}"
     if [[ -f /etc/debian_version ]]; then
         sudo apt update
@@ -110,6 +111,9 @@ if ! python3 -m venv --help &> /dev/null 2>&1; then
     elif [[ -f /etc/redhat-release ]]; then
         sudo yum install -y python3-venv
     fi
+    echo -e "${GREEN}✓${NC} python3-venv установлен"
+else
+    echo -e "${GREEN}✓${NC} python3-venv доступен"
 fi
 
 # Проверка PostgreSQL
@@ -177,11 +181,11 @@ fi
 
 # Обновление pip
 echo -e "${YELLOW}Обновление pip...${NC}"
-pip install --upgrade pip --quiet
+pip install --upgrade pip --timeout=300 --retries=5
 
 # Установка зависимостей
-echo -e "${YELLOW}Установка зависимостей Python...${NC}"
-pip install -r backend/requirements_local.txt --quiet
+echo -e "${YELLOW}Установка зависимостей Python (это может занять несколько минут)...${NC}"
+pip install -r backend/requirements_local.txt --timeout=300 --retries=5 --default-timeout=300
 
 # Проверка .env файла
 if [ ! -f ".env" ]; then
