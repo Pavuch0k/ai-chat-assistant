@@ -167,8 +167,20 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 "content": msg.response or ""
             })
     
-    # Получаем ответ от AI с учетом истории
-    response_text = await ai_service.get_response(request.message, conversation_history)
+    # Формируем информацию о собранных контактах для промпта
+    contact_status = ""
+    if contact:
+        has_name = bool(contact.name)
+        has_phone = bool(contact.phone)
+        if has_name and has_phone:
+            contact_status = f"\n\nВАЖНО: Контакты клиента УЖЕ СОБРАНЫ:\n- Имя: {contact.name}\n- Телефон: {contact.phone}\nНЕ ПРОСИ эти данные снова! Просто помогай по вопросам."
+        elif has_name:
+            contact_status = f"\n\nВАЖНО: Имя клиента уже известно: {contact.name}. Нужно собрать только номер телефона."
+        elif has_phone:
+            contact_status = f"\n\nВАЖНО: Телефон клиента уже известен: {contact.phone}. Нужно собрать только имя."
+    
+    # Получаем ответ от AI с учетом истории и статуса контактов
+    response_text = await ai_service.get_response(request.message, conversation_history, contact_status)
     
     # Сохраняем сообщения в БД с session_id
     user_message = Message(
