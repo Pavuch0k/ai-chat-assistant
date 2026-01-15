@@ -68,9 +68,15 @@ async def upload_documents(
                     text = f"Не удалось извлечь текст из PDF: {file.filename} - {str(e)}"
             elif file_ext.lower() in ['.doc', '.docx']:
                 try:
-                    from docx import Document
+                    # Проверяем, что файл существует
+                    if not os.path.exists(file_path):
+                        raise FileNotFoundError(f"Файл не найден: {file_path}")
+                    
+                    # Импортируем Document из python-docx с переименованием, чтобы избежать конфликта
+                    # с SQLAlchemy моделью Document из app.models.db_models
+                    from docx import Document as DocxDocument
                     # Открываем файл напрямую по пути
-                    doc = Document(file_path)
+                    doc = DocxDocument(file_path)
                     paragraphs = []
                     for paragraph in doc.paragraphs:
                         if paragraph.text.strip():
@@ -82,10 +88,12 @@ async def upload_documents(
                                 if cell.text.strip():
                                     paragraphs.append(cell.text)
                     text = "\n".join(paragraphs)
+                    if not text.strip():
+                        text = f"Документ {file.filename} не содержит текста"
                 except Exception as e:
                     import traceback
                     error_details = traceback.format_exc()
-                    print(f"DOCX error details: {error_details}")
+                    print(f"DOCX error for {file.filename}: {error_details}")
                     text = f"Не удалось извлечь текст из DOC/DOCX: {file.filename} - {str(e)}"
             else:
                 text = f"Формат {file_ext} пока не поддерживается"
