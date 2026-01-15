@@ -14,6 +14,14 @@
         init() {
             this.createWidget();
             this.attachEvents();
+            // На мобильных и планшетах автоматически открываем виджет
+            if (window.innerWidth <= 1024) {
+                this.isOpen = true;
+                const window = document.getElementById('chat-window');
+                if (window) {
+                    window.classList.add('active');
+                }
+            }
         }
         
         createWidget() {
