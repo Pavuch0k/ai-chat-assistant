@@ -43,13 +43,14 @@ class KnowledgeService:
     def add_document(self, text: str, document_id: int, metadata: dict = None) -> bool:
         """Добавить документ в базу знаний"""
         try:
-            # Разбиваем текст на чанки
+            # Разбиваем текст на чанки (уменьшаем размер для лучшего поиска имен)
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
+                chunk_size=500,  # Уменьшили для лучшего поиска конкретных имен
+                chunk_overlap=100,  # Уменьшили overlap
                 length_function=len,
             )
             chunks = text_splitter.split_text(text)
+            print(f"Документ разбит на {len(chunks)} чанков")
             
             # Создаем эмбеддинги для каждого чанка
             embedding_model = self._get_embedding_model()
@@ -84,9 +85,24 @@ class KnowledgeService:
     def search(self, query: str, limit: int = 5, score_threshold: float = 0.2) -> List[dict]:
         """Поиск в базе знаний"""
         try:
+            # Нормализуем запрос: убираем лишние слова для лучшего поиска имен
+            query_normalized = query.lower().strip()
+            # Если запрос содержит "кто такая", "кто такой", "who is" - извлекаем имя
+            import re
+            name_patterns = [
+                r'(?:кто такая|кто такой|who is|tell me about)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)',
+                r'([A-Z][a-z]+\s+[A-Z][a-z]+)',  # Просто имя и фамилия
+            ]
+            for pattern in name_patterns:
+                match = re.search(pattern, query, re.IGNORECASE)
+                if match:
+                    query_normalized = match.group(1).lower()
+                    print(f"Извлечено имя из запроса: {query_normalized}")
+                    break
+            
             # Создаем эмбеддинг для запроса
             embedding_model = self._get_embedding_model()
-            query_embedding = embedding_model.embed_query(query)
+            query_embedding = embedding_model.embed_query(query_normalized)
             
             # Ищем в Qdrant (берем больше результатов для фильтрации)
             results = self.qdrant_client.search(
