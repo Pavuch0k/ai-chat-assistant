@@ -354,8 +354,7 @@
     }
     
     /* Скрываем кнопку только когда виджет открыт на планшетах */
-    .chat-window.active ~ .chat-button,
-    .chat-window.active + .chat-button {
+    .ai-chat-widget.chat-open .chat-button {
         display: none;
     }
 }
@@ -384,7 +383,7 @@
     }
     
     /* Скрываем кнопку только когда виджет открыт на мобильных */
-    .ai-chat-widget:has(.chat-window.active) .chat-button {
+    .ai-chat-widget.chat-open .chat-button {
         display: none;
     }
     
@@ -460,7 +459,7 @@
     }
     
     /* Скрываем кнопку только когда виджет открыт на маленьких мобильных */
-    .ai-chat-widget:has(.chat-window.active) .chat-button {
+    .ai-chat-widget.chat-open .chat-button {
         display: none;
     }
     

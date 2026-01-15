@@ -14,14 +14,6 @@
         init() {
             this.createWidget();
             this.attachEvents();
-            // На мобильных и планшетах автоматически открываем виджет
-            if (window.innerWidth <= 1024) {
-                this.isOpen = true;
-                const window = document.getElementById('chat-window');
-                if (window) {
-                    window.classList.add('active');
-                }
-            }
         }
         
         createWidget() {
@@ -71,10 +63,13 @@
         toggleChat() {
             this.isOpen = !this.isOpen;
             const window = document.getElementById('chat-window');
+            const widget = document.getElementById('ai-chat-widget');
             if (this.isOpen) {
                 window.classList.add('active');
+                widget.classList.add('chat-open');
             } else {
                 window.classList.remove('active');
+                widget.classList.remove('chat-open');
             }
         }
         
