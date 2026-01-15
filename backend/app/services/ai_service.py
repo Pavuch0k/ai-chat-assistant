@@ -19,7 +19,7 @@ class AIService:
         
         # Ищем релевантную информацию в базе знаний
         knowledge_context = ""
-        search_results = knowledge_service.search(message, limit=5)  # Увеличиваем лимит до 5
+        search_results = knowledge_service.search(message, limit=10)  # Увеличиваем лимит до 10
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
             knowledge_context = "\n\nВАЖНО: Используй ТОЛЬКО информацию из базы знаний ниже для ответа. Если информация есть в базе знаний, обязательно используй её:\n"

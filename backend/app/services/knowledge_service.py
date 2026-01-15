@@ -82,13 +82,16 @@ class KnowledgeService:
             print(f"Error adding document to knowledge base: {e}")
             return False
     
-    def search(self, query: str, limit: int = 5, score_threshold: float = 0.2) -> List[dict]:
-        """Поиск в базе знаний"""
+    def search(self, query: str, limit: int = 10, score_threshold: float = 0.2) -> List[dict]:
+        """Поиск в базе знаний с гибридным поиском"""
         try:
+            import re
+            
             # Нормализуем запрос: убираем лишние слова для лучшего поиска имен
             query_normalized = query.lower().strip()
+            extracted_name = None
+            
             # Если запрос содержит "кто такая", "кто такой", "who is" - извлекаем имя
-            import re
             name_patterns = [
                 r'(?:кто такая|кто такой|who is|tell me about)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)',
                 r'([A-Z][a-z]+\s+[A-Z][a-z]+)',  # Просто имя и фамилия
@@ -96,7 +99,8 @@ class KnowledgeService:
             for pattern in name_patterns:
                 match = re.search(pattern, query, re.IGNORECASE)
                 if match:
-                    query_normalized = match.group(1).lower()
+                    extracted_name = match.group(1)
+                    query_normalized = extracted_name.lower()
                     print(f"Извлечено имя из запроса: {query_normalized}")
                     break
             
@@ -104,22 +108,31 @@ class KnowledgeService:
             embedding_model = self._get_embedding_model()
             query_embedding = embedding_model.embed_query(query_normalized)
             
-            # Ищем в Qdrant (берем больше результатов для фильтрации)
+            # Ищем в Qdrant (берем больше результатов)
             results = self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                limit=limit * 3  # Берем больше, чтобы отфильтровать по score
+                limit=limit * 2  # Берем больше для гибридного поиска
             )
             
-            # Формируем результат и фильтруем по score
+            # Формируем результат
             search_results = []
             for result in results:
-                # Косинусное расстояние: чем ближе к 1, тем лучше
-                # Снизили порог до 0.2 для лучшего покрытия
-                if result.score >= score_threshold:
+                text = result.payload.get("text", "")
+                score = result.score
+                
+                # Гибридный поиск: повышаем score если найдено имя в тексте
+                if extracted_name:
+                    name_lower = extracted_name.lower()
+                    if name_lower in text.lower():
+                        # Повышаем score на 0.2 если имя найдено в тексте
+                        score = min(1.0, score + 0.2)
+                        print(f"  Повышен score для фрагмента с именем: {score:.3f}")
+                
+                if score >= score_threshold:
                     search_results.append({
-                        "text": result.payload.get("text", ""),
-                        "score": result.score,
+                        "text": text,
+                        "score": score,
                         "metadata": {k: v for k, v in result.payload.items() if k != "text"}
                     })
             
@@ -127,7 +140,7 @@ class KnowledgeService:
             search_results.sort(key=lambda x: x['score'], reverse=True)
             final_results = search_results[:limit]
             
-            # Если нет результатов с порогом 0.2, пробуем более низкий порог
+            # Если нет результатов с порогом, пробуем более низкий порог
             if not final_results and results:
                 print(f"Не найдено результатов с порогом {score_threshold}, используем топ результаты")
                 for result in results[:limit]:
