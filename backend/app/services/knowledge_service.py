@@ -81,25 +81,25 @@ class KnowledgeService:
             print(f"Error adding document to knowledge base: {e}")
             return False
     
-    def search(self, query: str, limit: int = 5, score_threshold: float = 0.3) -> List[dict]:
+    def search(self, query: str, limit: int = 5, score_threshold: float = 0.2) -> List[dict]:
         """Поиск в базе знаний"""
         try:
             # Создаем эмбеддинг для запроса
             embedding_model = self._get_embedding_model()
             query_embedding = embedding_model.embed_query(query)
             
-            # Ищем в Qdrant (увеличиваем лимит для фильтрации по score)
+            # Ищем в Qdrant (берем больше результатов для фильтрации)
             results = self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                limit=limit * 2  # Берем больше, чтобы отфильтровать по score
+                limit=limit * 3  # Берем больше, чтобы отфильтровать по score
             )
             
             # Формируем результат и фильтруем по score
             search_results = []
             for result in results:
                 # Косинусное расстояние: чем ближе к 1, тем лучше
-                # Обычно хорошие результаты имеют score > 0.5
+                # Снизили порог до 0.2 для лучшего покрытия
                 if result.score >= score_threshold:
                     search_results.append({
                         "text": result.payload.get("text", ""),
@@ -109,7 +109,19 @@ class KnowledgeService:
             
             # Сортируем по score (от большего к меньшему) и берем топ limit
             search_results.sort(key=lambda x: x['score'], reverse=True)
-            return search_results[:limit]
+            final_results = search_results[:limit]
+            
+            # Если нет результатов с порогом 0.2, пробуем более низкий порог
+            if not final_results and results:
+                print(f"Не найдено результатов с порогом {score_threshold}, используем топ результаты")
+                for result in results[:limit]:
+                    final_results.append({
+                        "text": result.payload.get("text", ""),
+                        "score": result.score,
+                        "metadata": {k: v for k, v in result.payload.items() if k != "text"}
+                    })
+            
+            return final_results
         except Exception as e:
             print(f"Error searching knowledge base: {e}")
             import traceback
