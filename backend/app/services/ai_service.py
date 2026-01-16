@@ -84,33 +84,53 @@ class AIService:
         })
         
         # Настройка прокси для httpx
-        proxies = {
-            "http://": self.proxy_url,
-            "https://": self.proxy_url
-        } if self.proxy_url else None
+        # httpx поддерживает прокси в формате: http://user:pass@host:port
+        # Для словаря proxies используем тот же URL для http и https
+        proxies = None
+        if self.proxy_url:
+            proxies = {
+                "http://": self.proxy_url,
+                "https://": self.proxy_url
+            }
         
-        async with httpx.AsyncClient(proxies=proxies, timeout=60.0) as client:
+        # Пробуем с прокси, если не работает - пробуем без прокси
+        for attempt in range(2):
             try:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "gpt-4o-mini",
-                        "messages": messages,
-                        "temperature": 0.7,
-                        "max_tokens": 500
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
-                return data["choices"][0]["message"]["content"]
+                async with httpx.AsyncClient(
+                    proxies=proxies if attempt == 0 else None,
+                    timeout=httpx.Timeout(60.0, connect=10.0)
+                ) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "gpt-4o-mini",
+                            "messages": messages,
+                            "temperature": 0.7,
+                            "max_tokens": 500
+                        }
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    return data["choices"][0]["message"]["content"]
+            except (httpx.ProxyError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+                if attempt == 0 and self.proxy_url:
+                    print(f"Ошибка прокси при попытке {attempt + 1}: {e}. Пробую без прокси...")
+                    continue
+                else:
+                    raise
             except Exception as e:
                 import traceback
                 print(f"OpenAI API Error: {e}")
                 print(f"Traceback: {traceback.format_exc()}")
+                if attempt == 0 and self.proxy_url:
+                    print("Пробую без прокси...")
+                    continue
                 return "Извините, произошла ошибка при обработке запроса. Попробуйте позже."
+        
+        return "Извините, произошла ошибка при обработке запроса. Попробуйте позже."
 
 ai_service = AIService()
