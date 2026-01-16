@@ -83,9 +83,3 @@ docker-compose up -d
 ## Документация
 
 Подробная документация доступна в файле [DOCS.md](DOCS.md)
-
-### Быстрые ссылки
-
-- **API Документация (Swagger)**: http://localhost:8000/docs
-- **Админ панель**: http://localhost:8000/admin
-- **Виджет**: http://localhost:8080
