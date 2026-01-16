@@ -22,8 +22,8 @@ pip install -r backend/requirements_local.txt
 
 3. Настройте .env файл:
 ```bash
-cp .env.example .env
-# Отредактируйте .env и укажите ваши настройки
+# Создайте .env файл вручную с необходимыми переменными:
+# DATABASE_URL, QDRANT_URL, OPENAI_API_KEY и т.д.
 ```
 
 4. Убедитесь что PostgreSQL запущен:
@@ -45,8 +45,8 @@ sudo systemctl start postgresql
 
 ### Вариант 1: Через gunicorn (рекомендуется)
 ```bash
-chmod +x run_local.sh
-./run_local.sh
+chmod +x scripts/run/run_local.sh
+./scripts/run/run_local.sh
 ```
 
 ### Вариант 2: Через uvicorn напрямую

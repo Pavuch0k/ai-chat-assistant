@@ -26,7 +26,7 @@ ai-chat/
 
 Автоматическая установка и запуск:
 ```bash
-./setup_and_run.sh
+./scripts/run/setup_and_run.sh
 ```
 
 Скрипт автоматически:
@@ -40,7 +40,7 @@ ai-chat/
 
 Запуск frontend отдельно (в другом терминале):
 ```bash
-./run_frontend.sh
+./scripts/run/run_frontend.sh
 ```
 
 ### Вариант 2: Через Docker
