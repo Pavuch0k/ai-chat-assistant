@@ -38,6 +38,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_chat}
       - QDRANT_URL=http://qdrant:6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_PROXY_URL=${OPENAI_PROXY_URL:-}
+      - OPENAI_PROXY_USERNAME=${OPENAI_PROXY_USERNAME:-}
+      - OPENAI_PROXY_PASSWORD=${OPENAI_PROXY_PASSWORD:-}
+      - BITRIX24_WEBHOOK_URL=${BITRIX24_WEBHOOK_URL:-}
+      - APP_ENV=${APP_ENV:-production}
+      - DEBUG=${DEBUG:-False}
     ports:
       - "8000:8000"
     volumes:

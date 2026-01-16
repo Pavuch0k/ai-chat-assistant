@@ -2,9 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Кэширование pip для ускорения пересборки
-RUN pip install --upgrade pip && \
-    pip cache dir
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Обновление pip
+RUN pip install --upgrade pip
 
 # Копируем только requirements для кэширования слоя зависимостей
 COPY requirements.txt .
@@ -12,5 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения
 COPY . .
+
+# Создаем директорию для загрузок
+RUN mkdir -p uploads
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
