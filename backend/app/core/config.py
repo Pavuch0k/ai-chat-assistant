@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     openai_proxy_username: Optional[str] = None
     openai_proxy_password: Optional[str] = None
     
+    # Bitrix24
+    bitrix24_webhook_url: Optional[str] = None
+    
     # App
     app_env: str = "development"
     debug: bool = True

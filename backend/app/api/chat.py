@@ -2,9 +2,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.models.schemas import ChatRequest, ChatResponse
 from app.services.ai_service import ai_service
+from app.services.bitrix24_service import bitrix24_service
 from app.db.database import get_db
 from app.models.db_models import Contact, Message
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -112,13 +116,25 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 contact_info[key] = value
     
     # Если нашли контакт из сессии, обновляем его данными
+    contact_was_updated = False
+    should_send_to_bitrix = False
+    
     if contact:
         if contact_info:
+            # Проверяем, были ли у контакта имя и телефон до обновления
+            had_both_before = bool(contact.name and contact.phone)
+            
             for key, value in contact_info.items():
                 if value and not getattr(contact, key):
                     setattr(contact, key, value)
-            db.commit()
-            db.refresh(contact)
+                    contact_was_updated = True
+            
+            if contact_was_updated:
+                db.commit()
+                db.refresh(contact)
+                # Отправляем в Bitrix24 только если теперь есть оба поля, а раньше не было
+                if not had_both_before and contact.name and contact.phone:
+                    should_send_to_bitrix = True
     elif contact_info:
         # Ищем существующий контакт по телефону
         if contact_info.get('phone'):
@@ -130,13 +146,41 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             db.add(contact)
             db.commit()
             db.refresh(contact)
+            contact_was_updated = True
+            # Отправляем в Bitrix24 если есть оба поля
+            if contact.name and contact.phone:
+                should_send_to_bitrix = True
         else:
+            # Проверяем, были ли у контакта имя и телефон до обновления
+            had_both_before = bool(contact.name and contact.phone)
+            
             # Обновляем существующий контакт
             for key, value in contact_info.items():
                 if value and not getattr(contact, key):
                     setattr(contact, key, value)
-            db.commit()
-            db.refresh(contact)
+                    contact_was_updated = True
+            
+            if contact_was_updated:
+                db.commit()
+                db.refresh(contact)
+                # Отправляем в Bitrix24 только если теперь есть оба поля, а раньше не было
+                if not had_both_before and contact.name and contact.phone:
+                    should_send_to_bitrix = True
+    
+    # Отправляем контакт в Bitrix24, если нужно
+    if should_send_to_bitrix and contact and contact.name and contact.phone:
+        try:
+            result = await bitrix24_service.create_lead(
+                name=contact.name,
+                phone=contact.phone,
+                comments=f"Контакт создан из AI Chat Widget. Session ID: {session_id}"
+            )
+            if result.get("success"):
+                logger.info(f"Контакт {contact.name} ({contact.phone}) успешно отправлен в Bitrix24 (Lead ID: {result.get('lead_id')})")
+            else:
+                logger.warning(f"Не удалось отправить контакт в Bitrix24: {result.get('error')}")
+        except Exception as e:
+            logger.error(f"Ошибка при отправке контакта в Bitrix24: {str(e)}", exc_info=True)
     
     # Если есть контакт, обновляем все сообщения этой сессии на этот контакт
     if contact:
