@@ -2,7 +2,7 @@
     'use strict';
     
     const API_URL = window.API_URL || 'http://localhost:8000';
-    const MOCK_MODE = window.MOCK_MODE !== false; // По умолчанию включен
+    const MOCK_MODE = window.MOCK_MODE === true; // По умолчанию выключен
     
     class ChatWidget {
         constructor() {

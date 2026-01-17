@@ -98,8 +98,10 @@
     </div>
     
     <script>
-        // Используем относительный путь для API - Nginx проксирует /api/ на backend
-        window.API_URL = window.location.origin;
+        // Для локальной разработки используем localhost:8000, для продакшена - window.location.origin
+        window.API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://localhost:8000' 
+            : window.location.origin;
         window.MOCK_MODE = false; // Режим заглушки выключен - используем реальный API
     </script>
     <script src="/src/widget.js"></script>
