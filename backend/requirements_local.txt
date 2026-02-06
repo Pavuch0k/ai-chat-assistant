@@ -5,6 +5,8 @@ sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 alembic==1.12.1
 httpx==0.25.2
+httpx-socks==0.8.1
+socksio==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
