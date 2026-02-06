@@ -337,12 +337,10 @@
     line-height: 1.6;
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
-    text-indent: 1.5em; /* Отступ в начале каждого абзаца */
 }
 
 .bot-message .message-content p:first-child {
     margin-top: 0;
-    text-indent: 0; /* Первый абзац без отступа */
 }
 
 .bot-message .message-content p:last-child {
