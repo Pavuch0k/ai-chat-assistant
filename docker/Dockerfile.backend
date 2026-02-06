@@ -5,6 +5,7 @@ WORKDIR /app
 # Установка системных зависимостей
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    shadowsocks-libev \
     && rm -rf /var/lib/apt/lists/*
 
 # Обновление pip

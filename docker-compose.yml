@@ -1,9 +1,8 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: ai-chat-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_chat}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -11,12 +10,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   qdrant:
     image: qdrant/qdrant:v1.6.1
@@ -33,6 +33,7 @@ services:
       context: ./backend
       dockerfile: ../docker/Dockerfile.backend
     container_name: ai-chat-backend
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -49,6 +50,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      # Монтируем venv если он существует (для ускорения запуска, избегаем переустановки зависимостей)
+      - ./venv:/app/venv:ro
       - pip_cache:/root/.cache/pip
       - uploads_data:/app/uploads
     depends_on:
@@ -56,15 +59,29 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Используем venv если он смонтирован, иначе используем системный Python
+    command: >
+      sh -c "
+        if [ -d /app/venv ] && [ -f /app/venv/bin/python ]; then
+          echo 'Using mounted venv dependencies from local venv';
+          export PYTHONPATH=/app:/app/venv/lib/python3.11/site-packages:/app/venv/lib/python3.12/site-packages:/app/venv/lib/python3.13/site-packages:/app/venv/lib/python3.14/site-packages;
+          /app/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload;
+        else
+          echo 'Using container dependencies';
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload;
+        fi
+      "
 
   frontend:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
     container_name: ai-chat-frontend
+    restart: unless-stopped
     ports:
       - "8080:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
 

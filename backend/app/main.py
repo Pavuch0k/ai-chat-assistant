@@ -5,10 +5,48 @@ from fastapi.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import chat, admin, admin_ui, knowledge
 from app.db.database import engine, Base
+from sqlalchemy import inspect, text
 import os
 
 # Создаем таблицы при запуске
 Base.metadata.create_all(bind=engine)
+
+# Функция для проверки и добавления недостающих колонок
+def ensure_widget_settings_columns():
+    """Проверяет и добавляет недостающие колонки в таблицу widget_settings"""
+    inspector = inspect(engine)
+    
+    # Проверяем, существует ли таблица widget_settings
+    if 'widget_settings' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('widget_settings')]
+        
+        # Добавляем недостающие колонки
+        with engine.connect() as conn:
+            new_columns = {
+                'background_color': "VARCHAR DEFAULT '#151b2e'",
+                'header_color': "VARCHAR DEFAULT '#667eea'",
+                'header_text_color': "VARCHAR DEFAULT '#ffffff'",
+                'user_message_color': "VARCHAR DEFAULT '#667eea'",
+                'bot_message_color': "VARCHAR DEFAULT '#1e2742'",
+                'text_color': "VARCHAR DEFAULT '#e0e6ed'",
+                'messages_area_color': "VARCHAR DEFAULT '#0a0e27'",
+                'input_background_color': "VARCHAR DEFAULT '#0a0e27'",
+                'border_color': "VARCHAR DEFAULT '#1e2742'",
+                'welcome_message': "TEXT DEFAULT 'Привет! Чем могу помочь?'",
+                'expanded_message_text': "VARCHAR DEFAULT 'Нужна помощь?'"
+            }
+            
+            for col_name, col_def in new_columns.items():
+                if col_name not in columns:
+                    conn.execute(text(f"ALTER TABLE widget_settings ADD COLUMN {col_name} {col_def}"))
+                    conn.commit()
+                    print(f"✓ Добавлена колонка {col_name} в widget_settings")
+
+# Вызываем функцию при старте
+try:
+    ensure_widget_settings_columns()
+except Exception as e:
+    print(f"Предупреждение при проверке колонок widget_settings: {e}")
 
 # Определяем путь для загрузок (локально или в Docker)
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads"))

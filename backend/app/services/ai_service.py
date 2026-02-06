@@ -1,20 +1,182 @@
 import os
 import httpx
+import base64
+import subprocess
+import atexit
+import logging
 from app.core.config import settings
 from app.services.knowledge_service import knowledge_service
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
         self.api_key = settings.openai_api_key
         self.base_url = "https://api.openai.com/v1"
+        self.shadowsocks_process = None
+        self.local_socks_port = None
+        
+        # Отладочный вывод
+        logger.info(f"DEBUG: settings.openai_proxy_url = {settings.openai_proxy_url}")
+        logger.info(f"DEBUG: settings.openai_proxy_username = {settings.openai_proxy_username}")
+        logger.info(f"DEBUG: settings.openai_proxy_password = {'SET' if settings.openai_proxy_password else 'NOT SET'}")
+        print(f"DEBUG: settings.openai_proxy_url = {settings.openai_proxy_url}", flush=True)
+        print(f"DEBUG: settings.openai_proxy_username = {settings.openai_proxy_username}", flush=True)
+        print(f"DEBUG: settings.openai_proxy_password = {'SET' if settings.openai_proxy_password else 'NOT SET'}", flush=True)
+        
         # Настройка прокси
-        if settings.openai_proxy_url and settings.openai_proxy_username and settings.openai_proxy_password:
-            # Формат: http://username:password@host:port
-            proxy_host = settings.openai_proxy_url.replace("http://", "").replace("https://", "")
-            self.proxy_url = f"http://{settings.openai_proxy_username}:{settings.openai_proxy_password}@{proxy_host}"
+        if settings.openai_proxy_url:
+            logger.info(f"Найден прокси URL: {settings.openai_proxy_url[:50]}...")
+            print(f"Найден прокси URL: {settings.openai_proxy_url[:50]}...", flush=True)
+            # Проверяем, является ли это Shadowsocks ссылкой
+            if settings.openai_proxy_url.startswith("ss://"):
+                logger.info("Обнаружен Shadowsocks прокси, настраиваю локальный клиент...")
+                print("Обнаружен Shadowsocks прокси, настраиваю локальный клиент...", flush=True)
+                self.proxy_url = None  # Будем использовать SOCKS5 через локальный Shadowsocks клиент
+                self._setup_shadowsocks(settings.openai_proxy_url)
+            elif settings.openai_proxy_username and settings.openai_proxy_password:
+                # Обычный HTTP/HTTPS прокси
+                proxy_host = settings.openai_proxy_url.replace("http://", "").replace("https://", "")
+                proxy_protocol = "https" if settings.openai_proxy_url.startswith("https://") else "http"
+                self.proxy_url = f"{proxy_protocol}://{settings.openai_proxy_username}:{settings.openai_proxy_password}@{proxy_host}"
+            else:
+                self.proxy_url = None
         else:
             self.proxy_url = None
+        
+        # Регистрируем очистку при выходе
+        atexit.register(self._cleanup_shadowsocks)
+        
+        proxy_info = f"SOCKS5:{self.local_socks_port}" if self.local_socks_port else (self.proxy_url if self.proxy_url else "None")
+        logger.info(f"AI Service initialized. API Key: {'Set' if self.api_key else 'NOT SET'}, Proxy: {proxy_info}")
+        print(f"AI Service initialized. API Key: {'Set' if self.api_key else 'NOT SET'}, Proxy: {proxy_info}", flush=True)
+    
+    def _parse_shadowsocks_url(self, ss_url: str):
+        """Парсит Shadowsocks URL"""
+        ss_url = ss_url.replace("ss://", "").split("?")[0]  # Убираем параметры после ?
+        parts = ss_url.split("@")
+        if len(parts) != 2:
+            raise ValueError("Неверный формат SS URL")
+        
+        encoded = parts[0]
+        server_part = parts[1]
+        # Убираем возможные слеши в конце
+        server_part = server_part.rstrip("/")
+        server, port = server_part.split(":")
+        
+        decoded = base64.b64decode(encoded).decode()
+        method, password = decoded.split(":", 1)
+        
+        return {
+            "method": method,
+            "password": password,
+            "server": server,
+            "port": int(port)
+        }
+    
+    def _setup_shadowsocks(self, ss_url: str):
+        """Настраивает локальный Shadowsocks клиент для создания SOCKS5 прокси"""
+        try:
+            logger.info(f"Начинаю настройку Shadowsocks для URL: {ss_url[:50]}...")
+            print(f"Начинаю настройку Shadowsocks для URL: {ss_url[:50]}...", flush=True)
+            ss_config = self._parse_shadowsocks_url(ss_url)
+            logger.info(f"Парсинг успешен: server={ss_config['server']}, port={ss_config['port']}, method={ss_config['method']}")
+            print(f"Парсинг успешен: server={ss_config['server']}, port={ss_config['port']}, method={ss_config['method']}", flush=True)
+            
+            # Пробуем использовать shadowsocks-libev через ss-local
+            try:
+                # Проверяем наличие ss-local
+                logger.info("Проверяю наличие ss-local...")
+                print("Проверяю наличие ss-local...", flush=True)
+                result = subprocess.run(["which", "ss-local"], capture_output=True, text=True)
+                logger.info(f"Результат проверки ss-local: returncode={result.returncode}, stdout={result.stdout.strip()}")
+                print(f"Результат проверки ss-local: returncode={result.returncode}, stdout={result.stdout.strip()}", flush=True)
+                if result.returncode == 0:
+                    # Используем ss-local для создания локального SOCKS5 прокси
+                    # Пробуем разные порты, начиная с 1080
+                    import socket
+                    for port in [1080, 1081, 1082, 1083, 1084]:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        result = sock.connect_ex(('127.0.0.1', port))
+                        sock.close()
+                        if result != 0:  # Порт свободен
+                            self.local_socks_port = port
+                            break
+                    else:
+                        # Все порты заняты, используем 1080 и попробуем убить старый процесс
+                        self.local_socks_port = 1080
+                        try:
+                            subprocess.run(["pkill", "-f", "ss-local"], timeout=2, capture_output=True)
+                            import time
+                            time.sleep(1)
+                        except:
+                            pass
+                    
+                    # Создаем конфигурационный файл для ss-local
+                    config_content = f"""{{
+    "server": "{ss_config['server']}",
+    "server_port": {ss_config['port']},
+    "local_address": "127.0.0.1",
+    "local_port": {self.local_socks_port},
+    "password": "{ss_config['password']}",
+    "method": "{ss_config['method']}",
+    "timeout": 300
+}}"""
+                    
+                    import tempfile
+                    config_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+                    config_file.write(config_content)
+                    config_file.close()
+                    
+                    # Запускаем ss-local
+                    self.shadowsocks_process = subprocess.Popen(
+                        ["ss-local", "-c", config_file.name],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        start_new_session=True
+                    )
+                    
+                    # Ждем немного для запуска и проверяем, что процесс запустился
+                    import time
+                    time.sleep(3)
+                    
+                    # Проверяем, что процесс еще работает
+                    if self.shadowsocks_process.poll() is None:
+                        logger.info(f"✓ Shadowsocks клиент запущен на порту {self.local_socks_port}")
+                        logger.info(f"  Конфигурация: {ss_config['server']}:{ss_config['port']}, метод: {ss_config['method']}")
+                        print(f"✓ Shadowsocks клиент запущен на порту {self.local_socks_port}", flush=True)
+                        print(f"  Конфигурация: {ss_config['server']}:{ss_config['port']}, метод: {ss_config['method']}", flush=True)
+                        return
+                    else:
+                        # Процесс завершился, читаем ошибку
+                        stderr_output = self.shadowsocks_process.stderr.read().decode() if self.shadowsocks_process.stderr else ""
+                        logger.error(f"✗ Ошибка запуска Shadowsocks клиента: {stderr_output}")
+                        print(f"✗ Ошибка запуска Shadowsocks клиента: {stderr_output}", flush=True)
+                        self.shadowsocks_process = None
+            except FileNotFoundError as e:
+                logger.warning(f"ss-local не найден: {e}. Установите shadowsocks-libev")
+                print(f"ss-local не найден: {e}. Установите shadowsocks-libev", flush=True)
+            except Exception as e:
+                logger.error(f"Ошибка настройки Shadowsocks: {e}", exc_info=True)
+                print(f"Ошибка настройки Shadowsocks: {e}", flush=True)
+                import traceback
+                print(traceback.format_exc(), flush=True)
+                
+        except Exception as e:
+            print(f"Ошибка парсинга Shadowsocks URL: {e}")
+    
+    def _cleanup_shadowsocks(self):
+        """Останавливает локальный Shadowsocks клиент"""
+        if self.shadowsocks_process:
+            try:
+                self.shadowsocks_process.terminate()
+                self.shadowsocks_process.wait(timeout=5)
+            except:
+                try:
+                    self.shadowsocks_process.kill()
+                except:
+                    pass
     
     async def get_response(self, message: str, conversation_history: list = None, contact_status: str = "") -> tuple[str, str, str]:
         """
@@ -26,12 +188,15 @@ class AIService:
                 - extracted_name - имя из ответа ИИ или пустая строка
                 - extracted_phone - телефон из ответа ИИ или пустая строка
         """
+        print(f"=== get_response вызван: message='{message[:50]}...', history_len={len(conversation_history) if conversation_history else 0}")
         if conversation_history is None:
             conversation_history = []
         
         # Ищем релевантную информацию в базе знаний
+        print(f"Начинаю поиск в базе знаний для сообщения: {message[:100]}")
         knowledge_context = ""
         search_results = knowledge_service.search(message, limit=10)  # Увеличиваем лимит до 10
+        print(f"Поиск завершен, найдено результатов: {len(search_results) if search_results else 0}")
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
             knowledge_context = "\n\nВАЖНО: Используй ТОЛЬКО информацию из базы знаний ниже для ответа. Если информация есть в базе знаний, обязательно используй её:\n"
@@ -44,9 +209,9 @@ class AIService:
         else:
             print(f"Поиск в базе знаний не вернул результатов для запроса: {message[:100]}")
         
-        system_prompt = """Ты дружелюбный ассистент службы поддержки. 
+        system_prompt = """Ты дружелюбный и профессиональный ассистент службы поддержки. 
 
-Твоя главная задача - помочь клиенту И собрать его контактные данные (имя и номер телефона).
+Твоя главная задача - помочь клиенту ответить на его вопросы, а затем естественным образом собрать его контактные данные (имя и номер телефона) для связи с менеджером.
 
 КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА:
 
@@ -56,15 +221,28 @@ class AIService:
    - НЕ смешивай информацию про разных людей - если спрашивают про "Karena Zhou", отвечай ТОЛЬКО про Karena Zhou, не упоминай других людей
    - Если в базе знаний есть несколько фрагментов про одного человека - объединяй их, но не путай с другими людьми
 
-2. СБОР КОНТАКТОВ - КРИТИЧЕСКИ ВАЖНО (ПРИОРИТЕТ #1):
+2. СТИЛЬ ОБЩЕНИЯ - ЕСТЕСТВЕННЫЙ ДИАЛОГ:
+   - Веди себя как живой человек, а не как бот
+   - Сначала отвечай на вопросы клиента, помогай ему разобраться
+   - НЕ требуй контакты сразу - это отталкивает
+   - Проси контакты только когда это уместно:
+     * Когда клиент задал вопрос, на который ты не можешь ответить (нет информации) - предложи передать менеджеру
+     * Когда клиент готов к дальнейшему общению или хочет что-то уточнить
+     * В конце диалога, если контакты еще не собраны
    - Если контакты УЖЕ собраны (имя и телефон есть) - НЕ проси их снова, просто помогай по вопросам
-   - Если НЕТ имени ИЛИ телефона - ВСЕГДА вежливо проси недостающие данные в КАЖДОМ ответе, пока не соберешь оба
-   - Если есть только имя - вежливо попроси номер телефона в КАЖДОМ ответе, пока не получишь
-   - Если есть только телефон - вежливо попроси имя в КАЖДОМ ответе, пока не получишь
-   - Если ничего нет - вежливо проси имя и телефон в КАЖДОМ ответе, пока не соберешь оба
-   - В ПЕРВОМ ответе клиенту ОБЯЗАТЕЛЬНО спроси имя и телефон, если их еще нет
-   - НЕ прекращай просить контакты, пока не получишь И имя И телефон
-   - Даже отвечая на вопросы, ВСЕГДА добавляй просьбу о недостающих контактах
+   - Если есть только имя - используй его в общении, но не навязывай просьбу о телефоне в каждом ответе
+   - Если есть только телефон - не навязывай просьбу об имени в каждом ответе
+   - Будь гибким: если клиент задает вопросы - отвечай на них, не перебивай просьбами о контактах
+   - Проси контакты естественно, когда это логично для продолжения диалога
+   - КРИТИЧЕСКИ ВАЖНО: НИКОГДА не упоминай URL сайтов (www.hilingo.cn, http://, https://) в ответах
+   - Используй Markdown форматирование для красивого отображения:
+     * Используй **жирный текст** для важных моментов и названий
+     * Используй списки (- или 1.) для перечисления
+     * КРИТИЧЕСКИ ВАЖНО: Каждое новое предложение должно быть в отдельном абзаце (двойной перенос строки \n\n)
+     * Разбивай информацию на логические блоки с пустыми строками между ними
+     * НЕ используй заголовки (##) - они создают разный размер шрифта
+     * Делай ответы визуально приятными и логически структурированными
+     * Все предложения должны быть одного размера и цвета
 
 3. КОНТЕКСТ:
    - Помни весь предыдущий разговор
@@ -99,21 +277,34 @@ class AIService:
    
    - "response": твой обычный дружелюбный ответ клиенту
    
-   ПРИМЕРЫ (ВСЕГДА ТОЛЬКО JSON, БЕЗ ТЕКСТА ДО ИЛИ ПОСЛЕ):
+   ПРИМЕРЫ ЕСТЕСТВЕННОГО ОБЩЕНИЯ (ВСЕГДА ТОЛЬКО JSON, БЕЗ ТЕКСТА ДО ИЛИ ПОСЛЕ):
+   
+   Сообщение: "/start"
+   Ответ: {"response": "Здравствуйте! Я ваш помощник. Рад помочь вам. Чем могу быть полезен?", "name": "0", "phone": "0"}
+   
+   Сообщение: "Добрый день! Интересует информация о ваших услугах"
+   Ответ: {"response": "Добрый день! С удовольствием расскажу о наших услугах. Какой формат вас больше интересует?", "name": "0", "phone": "0"}
+   
    Сообщение: "Влад 89371234378"
    Ответ: {"response": "Спасибо, Влад! Записал ваш номер.", "name": "Влад", "phone": "89371234378"}
    
+   Сообщение: "расскажи про всё"
+   Ответ: {"response": "**Hilingo International** предлагает программы обучения китайскому языку для детей и подростков.\n\nУ нас есть несколько вариантов:\n\n1. **Международная версия для детей и подростков (YCT)**: Игровой формат, развитие разговорных навыков, подготовка к международному экзамену YCT.\n\n2. **Усиленная версия для детей-билингвов**: Для семей, где говорят на русском и китайском, с акцентом на грамотность, чтение и письмо.\n\n3. **Культурно-познавательная версия**: Знакомство с традициями, праздниками, каллиграфией и культурой Китая в интерактивной форме.\n\nМы также предлагаем удобное расписание и интеграцию в основное расписание садов/школ.\n\nВозможность участия в культурных мероприятиях и олимпиадах.\n\nПодготовку к международным экзаменам (YCT/HSK).\n\nНаши преподаватели имеют квалификацию и опыт работы с детьми разных возрастов.", "name": "0", "phone": "0"}
+   
    Сообщение: "меня интересует цена"
-   Ответ: {"response": "Конечно! Расскажу о ценах. Пожалуйста, назовите ваше имя и номер телефона для связи.", "name": "0", "phone": "0"}
+   Ответ: {"response": "Конечно! Расскажу о ценах. У нас есть несколько вариантов с разной стоимостью. Какой формат вас больше интересует?", "name": "0", "phone": "0"}
    
    Сообщение: "меня зовут Иван"
-   Ответ: {"response": "Приятно познакомиться, Иван! Пожалуйста, укажите ваш номер телефона.", "name": "Иван", "phone": "0"}
+   Ответ: {"response": "Приятно познакомиться, Иван! Чем могу помочь?", "name": "Иван", "phone": "0"}
    
    Сообщение: "Привет"
-   Ответ: {"response": "Привет! Как я могу помочь? Пожалуйста, назовите ваше имя и номер телефона для связи.", "name": "0", "phone": "0"}
+   Ответ: {"response": "Здравствуйте! Рад помочь вам. Чем могу быть полезен?", "name": "0", "phone": "0"}
    
-   Сообщение: "Понял"
-   Ответ: {"response": "Отлично! Если есть вопросы, дайте знать. Пожалуйста, назовите ваше имя и номер телефона.", "name": "0", "phone": "0"}"""
+   Сообщение: "Хорошо, спасибо! Подскажите, пожалуйста, у меня есть вопрос по деталям"
+   Ответ: {"response": "К сожалению, подробной информации по этому вопросу у меня нет. Это важный вопрос. Могу передать ваш номер менеджеру? Он точно разъяснит все детали и поможет.", "name": "0", "phone": "0"}
+   
+   Сообщение: "Да, пожалуйста, направьте мне контакты менеджера для дальнейшей связи"
+   Ответ: {"response": "Для связи с менеджером мне нужен ваш номер телефона. Пожалуйста, отправьте его, и я сразу передам менеджеру для обратной связи. Какой у вас номер телефона?", "name": "0", "phone": "0"}"""
         
         # Добавляем статус контактов
         if contact_status:
@@ -140,10 +331,21 @@ class AIService:
         })
         
         # Настройка прокси для httpx
-        # httpx поддерживает прокси в формате: http://user:pass@host:port
-        # Для словаря proxies используем тот же URL для http и https
         proxies = None
-        if self.proxy_url:
+        if self.local_socks_port:
+            # Используем локальный SOCKS5 прокси от Shadowsocks клиента
+            try:
+                import httpx_socks
+                proxies = {
+                    "http://": f"socks5://127.0.0.1:{self.local_socks_port}",
+                    "https://": f"socks5://127.0.0.1:{self.local_socks_port}"
+                }
+            except ImportError:
+                print("httpx-socks не установлен. Установите: pip install httpx-socks")
+                # Пробуем без прокси
+                proxies = None
+        elif self.proxy_url:
+            # Обычный HTTP/HTTPS прокси
             proxies = {
                 "http://": self.proxy_url,
                 "https://": self.proxy_url
@@ -154,8 +356,10 @@ class AIService:
             try:
                 async with httpx.AsyncClient(
                     proxies=proxies if attempt == 0 else None,
-                    timeout=httpx.Timeout(60.0, connect=10.0)
+                    timeout=httpx.Timeout(120.0, connect=30.0, read=90.0)
                 ) as client:
+                    print(f"Отправка запроса к OpenAI API: {self.base_url}/chat/completions")
+                    print(f"API Key присутствует: {bool(self.api_key)}")
                     response = await client.post(
                         f"{self.base_url}/chat/completions",
                         headers={
@@ -302,7 +506,17 @@ class AIService:
         
         # Настройка прокси
         proxies = None
-        if self.proxy_url:
+        if self.local_socks_port:
+            # Используем локальный SOCKS5 прокси от Shadowsocks клиента
+            try:
+                import httpx_socks
+                proxies = {
+                    "http://": f"socks5://127.0.0.1:{self.local_socks_port}",
+                    "https://": f"socks5://127.0.0.1:{self.local_socks_port}"
+                }
+            except ImportError:
+                proxies = None
+        elif self.proxy_url:
             proxies = {
                 "http://": self.proxy_url,
                 "https://": self.proxy_url
@@ -313,7 +527,7 @@ class AIService:
             try:
                 async with httpx.AsyncClient(
                     proxies=proxies if attempt == 0 else None,
-                    timeout=httpx.Timeout(30.0, connect=10.0)
+                    timeout=httpx.Timeout(120.0, connect=30.0, read=90.0)
                 ) as client:
                     response = await client.post(
                         f"{self.base_url}/chat/completions",

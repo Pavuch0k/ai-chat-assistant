@@ -30,3 +30,24 @@ class Document(Base):
     file_type = Column(String, nullable=True)
     file_size = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class WidgetSettings(Base):
+    __tablename__ = "widget_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    primary_color = Column(String, default="#667eea")
+    secondary_color = Column(String, default="#764ba2")
+    button_color = Column(String, default="#667eea")
+    message_color = Column(String, default="#667eea")
+    background_color = Column(String, default="#151b2e")
+    header_color = Column(String, default="#667eea")
+    header_text_color = Column(String, default="#ffffff")
+    user_message_color = Column(String, default="#667eea")
+    bot_message_color = Column(String, default="#1e2742")
+    text_color = Column(String, default="#e0e6ed")
+    messages_area_color = Column(String, default="#0a0e27")
+    input_background_color = Column(String, default="#0a0e27")
+    border_color = Column(String, default="#1e2742")
+    welcome_message = Column(Text, default="Привет! Чем могу помочь?")
+    expanded_message_text = Column(String, default="Нужна помощь?")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

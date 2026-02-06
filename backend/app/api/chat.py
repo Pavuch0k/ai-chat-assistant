@@ -148,7 +148,11 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     
     # Получаем ответ от AI с учетом истории и статуса контактов
     # ВАЖНО: делаем это ДО создания/обновления контакта, чтобы использовать данные из ответа ИИ
+    logger.info(f"Вызываю ai_service.get_response для сообщения: {request.message[:100]}")
+    print(f"=== CHAT ENDPOINT: Вызываю ai_service.get_response для сообщения: {request.message[:100]}")
     response_text, ai_extracted_name, ai_extracted_phone = await ai_service.get_response(request.message, conversation_history_for_ai, contact_status_for_ai)
+    logger.info(f"Получен ответ от AI: {response_text[:100]}")
+    print(f"=== CHAT ENDPOINT: Получен ответ от AI: {response_text[:100]}")
     
     # Инициализируем contact_info ТОЛЬКО данными от ИИ (приоритет #1, без проверок)
     contact_info = {}
