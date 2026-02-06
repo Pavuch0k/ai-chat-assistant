@@ -328,17 +328,21 @@
     line-height: 1.5;
 }
 
+.bot-message .message-content {
+    white-space: pre-line; /* Сохраняем переносы строк */
+}
+
 .bot-message .message-content p {
-    margin: 10px 0;
+    margin: 0;
     line-height: 1.6;
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
-    text-indent: 1.5em; /* Отступ в начале каждого абзаца */
+    text-indent: 1.5em; /* Отступ в начале каждого предложения */
 }
 
 .bot-message .message-content p:first-child {
     margin-top: 0;
-    text-indent: 0; /* Первый абзац без отступа */
+    text-indent: 0; /* Первое предложение без отступа */
 }
 
 .bot-message .message-content p:last-child {
