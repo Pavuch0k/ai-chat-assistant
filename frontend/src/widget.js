@@ -36,14 +36,17 @@
             this.init();
         }
         
-        async init() {
-            // Загружаем marked.js, если его нет
-            try {
-                await loadMarked();
+        init() {
+            // Пытаемся загрузить marked.js асинхронно, если его нет
+            if (typeof marked === 'undefined' || !marked || typeof marked.parse !== 'function') {
+                loadMarked().then(() => {
+                    this.markedLoaded = true;
+                }).catch((e) => {
+                    console.warn('Не удалось загрузить marked.js:', e);
+                    this.markedLoaded = false;
+                });
+            } else {
                 this.markedLoaded = true;
-            } catch (e) {
-                console.warn('Не удалось загрузить marked.js:', e);
-                this.markedLoaded = false;
             }
             
             this.createWidget();
