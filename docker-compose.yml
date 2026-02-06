@@ -60,6 +60,7 @@ services:
       qdrant:
         condition: service_started
     # Используем venv если он смонтирован, иначе используем системный Python
+    # Устанавливаем недостающие зависимости при запуске
     command: >
       sh -c "
         if [ -d /app/venv ] && [ -f /app/venv/bin/python ]; then
@@ -68,6 +69,8 @@ services:
           /app/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload;
         else
           echo 'Using container dependencies';
+          # Проверяем и устанавливаем недостающие зависимости
+          pip install -q socksio==1.0.0 httpx-socks==0.8.1 2>/dev/null || true;
           uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload;
         fi
       "
