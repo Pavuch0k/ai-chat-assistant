@@ -4,16 +4,48 @@
     const API_URL = window.API_URL || 'http://localhost:8000';
     const MOCK_MODE = window.MOCK_MODE === true; // По умолчанию выключен
     
+    // Функция для загрузки marked.js, если он не загружен
+    function loadMarked() {
+        return new Promise((resolve, reject) => {
+            if (typeof marked !== 'undefined' && marked && marked.parse) {
+                resolve(marked);
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js';
+            script.onload = () => {
+                if (typeof marked !== 'undefined' && marked && marked.parse) {
+                    resolve(marked);
+                } else {
+                    reject(new Error('marked.js не загрузился'));
+                }
+            };
+            script.onerror = () => reject(new Error('Ошибка загрузки marked.js'));
+            document.head.appendChild(script);
+        });
+    }
+    
     class ChatWidget {
         constructor() {
             this.isOpen = false;
             this.isExpanded = false;
             this.sessionId = localStorage.getItem('chat_session_id') || null;
             this.expandTimer = null;
+            this.markedLoaded = false;
             this.init();
         }
         
-        init() {
+        async init() {
+            // Загружаем marked.js, если его нет
+            try {
+                await loadMarked();
+                this.markedLoaded = true;
+            } catch (e) {
+                console.warn('Не удалось загрузить marked.js:', e);
+                this.markedLoaded = false;
+            }
+            
             this.createWidget();
             this.attachEvents();
             this.startExpandTimer();
@@ -269,7 +301,7 @@
             let content;
             if (type === 'bot') {
                 // Проверяем наличие marked и рендерим Markdown для бот-сообщений
-                if (typeof marked !== 'undefined' && marked && marked.parse) {
+                if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
                     try {
                         content = marked.parse(text);
                     } catch (e) {
@@ -277,7 +309,18 @@
                         content = this.escapeHtml(text);
                     }
                 } else {
-                    console.warn('marked.js не загружен, используем обычный текст');
+                    // Если marked не загружен, пытаемся загрузить его асинхронно
+                    if (!this.markedLoaded) {
+                        loadMarked().then(() => {
+                            this.markedLoaded = true;
+                            // Перерисовываем сообщение с Markdown
+                            if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
+                                messageDiv.querySelector('.message-content').innerHTML = marked.parse(text);
+                            }
+                        }).catch(() => {
+                            console.warn('marked.js не загружен, используем обычный текст');
+                        });
+                    }
                     content = this.escapeHtml(text);
                 }
             } else {
