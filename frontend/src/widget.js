@@ -267,9 +267,19 @@
             
             // Для бот-сообщений рендерим Markdown, для пользовательских - экранируем HTML
             let content;
-            if (type === 'bot' && typeof marked !== 'undefined') {
-                // Рендерим Markdown для бот-сообщений
-                content = marked.parse(text);
+            if (type === 'bot') {
+                // Проверяем наличие marked и рендерим Markdown для бот-сообщений
+                if (typeof marked !== 'undefined' && marked && marked.parse) {
+                    try {
+                        content = marked.parse(text);
+                    } catch (e) {
+                        console.error('Markdown parsing error:', e);
+                        content = this.escapeHtml(text);
+                    }
+                } else {
+                    console.warn('marked.js не загружен, используем обычный текст');
+                    content = this.escapeHtml(text);
+                }
             } else {
                 // Экранируем HTML для пользовательских сообщений
                 content = this.escapeHtml(text);

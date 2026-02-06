@@ -88,8 +88,6 @@
         }
     </style>
     <link rel="stylesheet" href="/src/widget.css">
-    <!-- Marked.js для рендеринга Markdown -->
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -106,6 +104,8 @@
             : window.location.origin;
         window.MOCK_MODE = false; // Режим заглушки выключен - используем реальный API
     </script>
+    <!-- Marked.js для рендеринга Markdown - загружаем перед виджетом -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script src="/src/widget.js"></script>
 </body>
 </html>
