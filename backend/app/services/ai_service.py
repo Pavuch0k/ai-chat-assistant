@@ -335,7 +335,7 @@ class AIService:
    
    Пользователь: "Да, пожалуйста, направьте мне номер менеджера для дальнейшей связи"
    
-   Ассистент: "Для связи с менеджером мне нужен ваш номер телефона. Пожалуйста, отправьте его, и я сразу передам менеджеру для обратной связи. Какой у вас номер телефона?""""
+   Ассистент: "Для связи с менеджером мне нужен ваш номер телефона. Пожалуйста, отправьте его, и я сразу передам менеджеру для обратной связи. Какой у вас номер телефона?" """
         
         # Добавляем статус контактов
         if contact_status:
@@ -383,112 +383,155 @@ class AIService:
             }
         
         # Пробуем с прокси, если не работает - пробуем без прокси
-        for attempt in range(2):
+        for proxy_attempt in range(2):
             try:
-                async with httpx.AsyncClient(
-                    proxies=proxies if attempt == 0 else None,
-                    timeout=httpx.Timeout(120.0, connect=30.0, read=90.0)
-                ) as client:
-                    print(f"Отправка запроса к OpenAI API: {self.base_url}/chat/completions")
-                    print(f"API Key присутствует: {bool(self.api_key)}")
-                    response = await client.post(
-                        f"{self.base_url}/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self.api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "gpt-4o-mini",
-                            "messages": messages,
-                            "temperature": 0.7,
-                            "max_tokens": 500,
-                            "response_format": {"type": "json_object"}
-                        }
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    ai_response = data["choices"][0]["message"]["content"]
-                    
-                    # Парсим JSON ответ от ИИ
-                    extracted_name = ""
-                    extracted_phone = ""
-                    try:
-                        import json
-                        # Пытаемся найти JSON в ответе (может быть обернут в markdown код)
-                        json_text = ai_response.strip()
-                        # Убираем markdown код блоки если есть
-                        if json_text.startswith("```"):
-                            parts = json_text.split("```")
-                            for part in parts:
-                                if part.strip().startswith("{"):
-                                    json_text = part.strip()
-                                    if json_text.startswith("json"):
-                                        json_text = json_text[4:].strip()
-                                    break
-                        json_text = json_text.strip()
+                # Повторные попытки при ошибках парсинга или пустом ответе
+                for parse_attempt in range(3):  # Максимум 3 попытки
+                    async with httpx.AsyncClient(
+                        proxies=proxies if proxy_attempt == 0 else None,
+                        timeout=httpx.Timeout(120.0, connect=30.0, read=90.0)
+                    ) as client:
+                        print(f"Отправка запроса к OpenAI API (попытка {parse_attempt + 1}): {self.base_url}/chat/completions")
+                        print(f"API Key присутствует: {bool(self.api_key)}")
+                        response = await client.post(
+                            f"{self.base_url}/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {self.api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "gpt-4o-mini",
+                                "messages": messages,
+                                "temperature": 0.7,
+                                "max_tokens": 500,
+                                "response_format": {"type": "json_object"}
+                            }
+                        )
+                        response.raise_for_status()
+                        data = response.json()
+                        ai_response = data["choices"][0]["message"]["content"]
                         
-                        parsed = json.loads(json_text)
-                        response_text = parsed.get("response", ai_response)
-                        
-                        # Извлекаем имя
-                        name_value = parsed.get("name", "")
-                        if name_value and str(name_value).strip() not in ["0", "", None]:
-                            extracted_name = str(name_value).strip()
-                        
-                        # Извлекаем телефон
-                        phone_value = parsed.get("phone", "")
-                        if phone_value and str(phone_value).strip() not in ["0", "", None]:
-                            # Убираем все нецифровые символы кроме + в начале
-                            phone_clean = str(phone_value).strip()
-                            if phone_clean.startswith("+"):
-                                phone_clean = "+" + ''.join(filter(str.isdigit, phone_clean[1:]))
+                        # Проверяем, что ответ не пустой
+                        if not ai_response or not ai_response.strip():
+                            print(f"Получен пустой ответ от ИИ, попытка {parse_attempt + 1}/3")
+                            if parse_attempt < 2:  # Если не последняя попытка
+                                continue  # Повторяем запрос
                             else:
-                                phone_clean = ''.join(filter(str.isdigit, phone_clean))
-                            if len(phone_clean) >= 10:  # Минимум 10 цифр
-                                extracted_phone = phone_clean
-                    except (json.JSONDecodeError, KeyError, AttributeError) as e:
-                        # Если не удалось распарсить JSON, пытаемся извлечь JSON из текста
-                        print(f"Ошибка парсинга JSON от ИИ: {e}, ответ: {ai_response[:200]}")
-                        # Пытаемся найти JSON в ответе (может быть обернут в текст)
-                        import re
-                        json_match = re.search(r'\{[^{}]*"response"[^{}]*"name"[^{}]*"phone"[^{}]*\}', ai_response, re.DOTALL)
-                        if json_match:
-                            try:
-                                parsed = json.loads(json_match.group(0))
-                                response_text = parsed.get("response", ai_response)
-                                name_value = parsed.get("name", "")
-                                phone_value = parsed.get("phone", "")
-                                if name_value and str(name_value).strip() not in ["0", "", None]:
-                                    extracted_name = str(name_value).strip()
-                                if phone_value and str(phone_value).strip() not in ["0", "", None]:
-                                    phone_clean = ''.join(filter(str.isdigit, str(phone_value)))
-                                    if len(phone_clean) >= 10:
-                                        extracted_phone = phone_clean[-10:] if len(phone_clean) > 10 else phone_clean
-                            except:
-                                response_text = ai_response
+                                # Последняя попытка - возвращаем ошибку
+                                return ("Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос.", "", "")
+                        
+                        # Парсим JSON ответ от ИИ
+                        extracted_name = ""
+                        extracted_phone = ""
+                        parse_success = False
+                        try:
+                            import json
+                            # Пытаемся найти JSON в ответе (может быть обернут в markdown код)
+                            json_text = ai_response.strip()
+                            # Убираем markdown код блоки если есть
+                            if json_text.startswith("```"):
+                                parts = json_text.split("```")
+                                for part in parts:
+                                    if part.strip().startswith("{"):
+                                        json_text = part.strip()
+                                        if json_text.startswith("json"):
+                                            json_text = json_text[4:].strip()
+                                        break
+                            json_text = json_text.strip()
+                            
+                            parsed = json.loads(json_text)
+                            response_text = parsed.get("response", ai_response)
+                            
+                            # Проверяем, что response_text не пустой
+                            if not response_text or not response_text.strip():
+                                print(f"Пустое поле response в JSON, попытка {parse_attempt + 1}/3")
+                                if parse_attempt < 2:
+                                    continue  # Повторяем запрос
+                                else:
+                                    response_text = "Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос."
+                            
+                            # Извлекаем имя
+                            name_value = parsed.get("name", "")
+                            if name_value and str(name_value).strip() not in ["0", "", None]:
+                                extracted_name = str(name_value).strip()
+                            
+                            # Извлекаем телефон
+                            phone_value = parsed.get("phone", "")
+                            if phone_value and str(phone_value).strip() not in ["0", "", None]:
+                                # Убираем все нецифровые символы кроме + в начале
+                                phone_clean = str(phone_value).strip()
+                                if phone_clean.startswith("+"):
+                                    phone_clean = "+" + ''.join(filter(str.isdigit, phone_clean[1:]))
+                                else:
+                                    phone_clean = ''.join(filter(str.isdigit, phone_clean))
+                                if len(phone_clean) >= 10:  # Минимум 10 цифр
+                                    extracted_phone = phone_clean
+                            
+                            parse_success = True
+                            
+                        except (json.JSONDecodeError, KeyError, AttributeError) as e:
+                            # Если не удалось распарсить JSON, пытаемся извлечь JSON из текста
+                            print(f"Ошибка парсинга JSON от ИИ (попытка {parse_attempt + 1}/3): {e}, ответ: {ai_response[:200]}")
+                            
+                            # Если не последняя попытка - повторяем запрос
+                            if parse_attempt < 2:
+                                continue
+                            
+                            # Последняя попытка - пытаемся извлечь JSON из текста
+                            import re
+                            json_match = re.search(r'\{[^{}]*"response"[^{}]*"name"[^{}]*"phone"[^{}]*\}', ai_response, re.DOTALL)
+                            if json_match:
+                                try:
+                                    parsed = json.loads(json_match.group(0))
+                                    response_text = parsed.get("response", ai_response)
+                                    name_value = parsed.get("name", "")
+                                    phone_value = parsed.get("phone", "")
+                                    if name_value and str(name_value).strip() not in ["0", "", None]:
+                                        extracted_name = str(name_value).strip()
+                                    if phone_value and str(phone_value).strip() not in ["0", "", None]:
+                                        phone_clean = ''.join(filter(str.isdigit, str(phone_value)))
+                                        if len(phone_clean) >= 10:
+                                            extracted_phone = phone_clean[-10:] if len(phone_clean) > 10 else phone_clean
+                                    parse_success = True
+                                except:
+                                    pass
+                            
+                            if not parse_success:
+                                # Если JSON не найден, используем ответ как есть
+                                response_text = ai_response.strip() if ai_response else ""
+                                # Если ответ пустой, возвращаем сообщение об ошибке
+                                if not response_text:
+                                    response_text = "Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос."
                                 extracted_name = ""
                                 extracted_phone = ""
-                        else:
-                            # Если JSON не найден, используем ответ как есть
-                            response_text = ai_response
-                            extracted_name = ""
-                            extracted_phone = ""
-                    
-                    return (response_text, extracted_name, extracted_phone)
-            except (httpx.ProxyError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
-                if attempt == 0 and self.proxy_url:
-                    print(f"Ошибка прокси при попытке {attempt + 1}: {e}. Пробую без прокси...")
-                    continue
-                else:
-                    raise
-            except Exception as e:
-                import traceback
-                print(f"OpenAI API Error: {e}")
-                print(f"Traceback: {traceback.format_exc()}")
-                if attempt == 0 and self.proxy_url:
-                    print("Пробую без прокси...")
-                    continue
-                return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
+                        
+                        # Если парсинг успешен, возвращаем результат
+                        if parse_success:
+                            # Финальная проверка: если response_text пустой, возвращаем сообщение об ошибке
+                            if not response_text or not response_text.strip():
+                                response_text = "Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос."
+                            return (response_text, extracted_name, extracted_phone)
+                        
+                        # Если дошли сюда и parse_success = False, значит это была последняя попытка
+                        # и мы уже обработали ошибку выше - возвращаем ошибку
+                        if not parse_success:
+                            return ("Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос.", "", "")
+                        break
+                except (httpx.ProxyError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+                    if proxy_attempt == 0 and self.proxy_url:
+                        print(f"Ошибка прокси при попытке {proxy_attempt + 1}: {e}. Пробую без прокси...")
+                        break  # Выходим из внутреннего цикла, чтобы попробовать без прокси
+                    else:
+                        raise
+                except Exception as e:
+                    import traceback
+                    print(f"OpenAI API Error: {e}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    if proxy_attempt == 0 and self.proxy_url:
+                        print("Пробую без прокси...")
+                        break  # Выходим из внутреннего цикла, чтобы попробовать без прокси
+                    # Если это была последняя попытка, возвращаем ошибку
+                    return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
         
         return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
     
