@@ -195,7 +195,7 @@ class AIService:
         # Ищем релевантную информацию в базе знаний
         print(f"Начинаю поиск в базе знаний для сообщения: {message[:100]}")
         knowledge_context = ""
-        search_results = knowledge_service.search(message, limit=5)  # Ограничиваем до 5 для уменьшения контекста
+        search_results = knowledge_service.search(message, limit=3)  # Ограничиваем до 3 для уменьшения контекста
         print(f"Поиск завершен, найдено результатов: {len(search_results) if search_results else 0}")
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
@@ -204,8 +204,8 @@ class AIService:
                 score = result.get('score', 0)
                 text = result['text'][:500]  # Ограничиваем длину для логов
                 print(f"  Фрагмент {i} (score: {score:.3f}): {text[:100]}...")
-                # Ограничиваем длину каждого фрагмента до 300 символов для уменьшения контекста
-                fragment_text = result['text'][:300]
+                # Ограничиваем длину каждого фрагмента до 200 символов для уменьшения контекста
+                fragment_text = result['text'][:200]
                 knowledge_context += f"{i}. {fragment_text}\n"
             knowledge_context += "\nЕсли в базе знаний есть информация по запросу пользователя, ОБЯЗАТЕЛЬНО используй её в ответе!"
         else:

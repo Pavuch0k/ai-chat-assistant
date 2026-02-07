@@ -286,11 +286,13 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     # Получаем историю сообщений для контекста
     conversation_history = []
     if contact:
-        # Берем последние 50 сообщений этого контакта
-        messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at).limit(50).all()
+        # Берем последние 10 сообщений этого контакта (уменьшено с 50 для уменьшения контекста)
+        messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at.desc()).limit(10).all()
+        messages = list(reversed(messages))  # Возвращаем в хронологическом порядке
     else:
         # Если контакта нет, берем сообщения по session_id
-        messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at).limit(50).all()
+        messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at.desc()).limit(10).all()
+        messages = list(reversed(messages))  # Возвращаем в хронологическом порядке
     
     # Формируем историю разговора (ВАЖНО: исключаем текущее сообщение, оно еще не сохранено)
     for msg in messages:
