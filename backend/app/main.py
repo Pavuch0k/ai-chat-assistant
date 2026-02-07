@@ -145,6 +145,10 @@ SWAGGER_DARK_THEME = """
 
 class SwaggerDarkThemeMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Пропускаем OPTIONS запросы без изменений (для CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         response = await call_next(request)
         if request.url.path == "/docs" and isinstance(response, HTMLResponse):
             body = await response.body()
@@ -166,16 +170,18 @@ app = FastAPI(
 )
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Добавляем middleware для тёмной темы Swagger UI
-app.add_middleware(SwaggerDarkThemeMiddleware)
-
+# ВАЖНО: CORS middleware должен быть ПЕРВЫМ, чтобы обрабатывать preflight OPTIONS запросы
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Добавляем middleware для тёмной темы Swagger UI ПОСЛЕ CORS
+app.add_middleware(SwaggerDarkThemeMiddleware)
 
 app.include_router(chat.router)
 app.include_router(admin.router)
