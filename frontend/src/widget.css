@@ -337,6 +337,11 @@
     font-size: 15px !important;
 }
 
+.bot-message .message-content p.compact-paragraph {
+    margin-top: 0.3em; /* Компактный отступ между параграфами */
+    margin-bottom: 0;
+}
+
 .bot-message .message-content p:first-child {
     margin-top: 0;
 }
@@ -348,8 +353,8 @@
 /* Компактные пустые строки - уменьшаем их высоту */
 .bot-message .message-content .empty-line {
     display: block;
-    height: 0.4em; /* Компактная высота пустой строки вместо полного line-height */
-    line-height: 0.4em;
+    height: 0.3em; /* Компактная высота пустой строки */
+    line-height: 0.3em;
     margin: 0;
     padding: 0;
 }

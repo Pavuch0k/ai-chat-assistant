@@ -303,14 +303,15 @@
             // Для бот-сообщений рендерим Markdown, для пользовательских - экранируем HTML
             let content;
             if (type === 'bot') {
-                // Обрабатываем текст: заменяем двойные переносы на более компактные
-                // Заменяем \n\n на \n + span с уменьшенной высотой для компактных пустых строк
-                let processedText = text.replace(/\n\n/g, '\n<span class="empty-line"></span>\n');
-                
                 // Проверяем наличие marked и рендерим Markdown для бот-сообщений
                 if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
                     try {
-                        content = marked.parse(processedText);
+                        content = marked.parse(text);
+                        // Обрабатываем HTML после парсинга: уменьшаем отступы между параграфами
+                        // Заменяем </p><p> на </p><p class="compact-paragraph"> для компактных отступов
+                        content = content.replace(/<\/p>\s*<p>/g, '</p><p class="compact-paragraph">');
+                        // Также обрабатываем пустые строки в pre-line тексте
+                        content = content.replace(/\n\n+/g, '\n<span class="empty-line"></span>\n');
                     } catch (e) {
                         console.error('Markdown parsing error:', e);
                         content = this.escapeHtml(text);
@@ -322,7 +323,10 @@
                             this.markedLoaded = true;
                             // Перерисовываем сообщение с Markdown
                             if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
-                                messageDiv.querySelector('.message-content').innerHTML = marked.parse(processedText);
+                                let newContent = marked.parse(text);
+                                newContent = newContent.replace(/<\/p>\s*<p>/g, '</p><p class="compact-paragraph">');
+                                newContent = newContent.replace(/\n\n+/g, '\n<span class="empty-line"></span>\n');
+                                messageDiv.querySelector('.message-content').innerHTML = newContent;
                             }
                         }).catch(() => {
                             console.warn('marked.js не загружен, используем обычный текст');
