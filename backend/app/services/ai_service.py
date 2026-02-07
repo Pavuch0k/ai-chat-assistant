@@ -517,21 +517,20 @@ class AIService:
                         if not parse_success:
                             return ("Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос.", "", "")
                         break
-                except (httpx.ProxyError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
-                    if proxy_attempt == 0 and self.proxy_url:
-                        print(f"Ошибка прокси при попытке {proxy_attempt + 1}: {e}. Пробую без прокси...")
-                        break  # Выходим из внутреннего цикла, чтобы попробовать без прокси
-                    else:
-                        raise
-                except Exception as e:
-                    import traceback
-                    print(f"OpenAI API Error: {e}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    if proxy_attempt == 0 and self.proxy_url:
-                        print("Пробую без прокси...")
-                        break  # Выходим из внутреннего цикла, чтобы попробовать без прокси
-                    # Если это была последняя попытка, возвращаем ошибку
-                    return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
+            except (httpx.ProxyError, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+                if proxy_attempt == 0 and self.proxy_url:
+                    print(f"Ошибка прокси при попытке {proxy_attempt + 1}: {e}. Пробую без прокси...")
+                    continue  # Пробуем без прокси
+                else:
+                    raise
+            except Exception as e:
+                import traceback
+                print(f"OpenAI API Error: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                if proxy_attempt == 0 and self.proxy_url:
+                    print("Пробую без прокси...")
+                    continue  # Пробуем без прокси
+                return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
         
         return ("Извините, произошла ошибка при обработке запроса. Попробуйте позже.", "", "")
     
