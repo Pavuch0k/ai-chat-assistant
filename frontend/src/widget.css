@@ -308,6 +308,8 @@
 .bot-message .message-content {
     font-size: 15px;
     color: var(--widget-text-color);
+    white-space: pre-line; /* Сохраняем переносы строк */
+    line-height: 1.6;
 }
 
 .bot-message .message-content * {
@@ -323,17 +325,13 @@
 .bot-message .message-content h6 {
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
-    margin: 12px 0 8px 0;
+    margin: 0;
     font-weight: 600;
-    line-height: 1.5;
-}
-
-.bot-message .message-content {
-    white-space: pre-line; /* Сохраняем переносы строк */
+    line-height: 1.6;
 }
 
 .bot-message .message-content p {
-    margin: 10px 0; /* Отступ между абзацами */
+    margin: 0; /* Убираем отступы между абзацами */
     line-height: 1.6;
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
@@ -345,6 +343,15 @@
 
 .bot-message .message-content p:last-child {
     margin-bottom: 0;
+}
+
+/* Компактные пустые строки - уменьшаем их высоту */
+.bot-message .message-content .empty-line {
+    display: block;
+    height: 0.4em; /* Компактная высота пустой строки вместо полного line-height */
+    line-height: 0.4em;
+    margin: 0;
+    padding: 0;
 }
 
 .bot-message .message-content ul,

@@ -303,10 +303,14 @@
             // Для бот-сообщений рендерим Markdown, для пользовательских - экранируем HTML
             let content;
             if (type === 'bot') {
+                // Обрабатываем текст: заменяем двойные переносы на более компактные
+                // Заменяем \n\n на \n + span с уменьшенной высотой для компактных пустых строк
+                let processedText = text.replace(/\n\n/g, '\n<span class="empty-line"></span>\n');
+                
                 // Проверяем наличие marked и рендерим Markdown для бот-сообщений
                 if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
                     try {
-                        content = marked.parse(text);
+                        content = marked.parse(processedText);
                     } catch (e) {
                         console.error('Markdown parsing error:', e);
                         content = this.escapeHtml(text);
@@ -318,7 +322,7 @@
                             this.markedLoaded = true;
                             // Перерисовываем сообщение с Markdown
                             if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
-                                messageDiv.querySelector('.message-content').innerHTML = marked.parse(text);
+                                messageDiv.querySelector('.message-content').innerHTML = marked.parse(processedText);
                             }
                         }).catch(() => {
                             console.warn('marked.js не загружен, используем обычный текст');
