@@ -105,9 +105,14 @@
                     // Если API_URL не установлен или это localhost, пытаемся определить автоматически
                     const protocol = window.location.protocol;
                     const hostname = window.location.hostname;
+                    const port = window.location.port;
+                    
                     // Если frontend и backend на одном домене, используем относительный путь
                     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
                         apiUrl = `${protocol}//${hostname}:8000`;
+                    } else if (port === '8080' || port === '') {
+                        // Если frontend на порту 8080 (docker) или без порта, используем localhost:8000
+                        apiUrl = 'http://localhost:8000';
                     } else {
                         apiUrl = API_URL || 'http://localhost:8000';
                     }
@@ -119,6 +124,7 @@
                         'Content-Type': 'application/json',
                     },
                     mode: 'cors',
+                    credentials: 'omit',
                 });
                 
                 if (!response.ok) {
