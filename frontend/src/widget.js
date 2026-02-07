@@ -58,6 +58,8 @@
             const widget = document.createElement('div');
             widget.id = 'ai-chat-widget';
             widget.className = 'ai-chat-widget';
+            // Скрываем виджет до загрузки настроек, чтобы избежать моргания дефолтных цветов
+            widget.style.visibility = 'hidden';
             widget.innerHTML = `
                 <div class="ai-chat-widget-container">
                     <div class="chat-expanded-message" id="chat-expanded-message">
@@ -152,10 +154,20 @@
                     if (expandedMsg && settings.expanded_message_text) {
                         expandedMsg.querySelector('span').textContent = settings.expanded_message_text;
                     }
+                    
+                    // Показываем виджет после загрузки настроек
+                    if (widget) {
+                        widget.style.visibility = 'visible';
+                    }
             } catch (error) {
                 console.error('Ошибка загрузки настроек виджета:', error);
                 // Используем настройки по умолчанию при ошибке
                 console.warn('Используются настройки виджета по умолчанию');
+                // Показываем виджет даже при ошибке
+                const widget = document.getElementById('ai-chat-widget');
+                if (widget) {
+                    widget.style.visibility = 'visible';
+                }
             }
         }
         
