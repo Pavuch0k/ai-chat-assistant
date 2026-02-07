@@ -361,14 +361,14 @@
 
 .bot-message .message-content ul,
 .bot-message .message-content ol {
-    margin: 4px 0;
+    margin: 2px 0;
     padding-left: 16px;
     line-height: 1.5;
     color: var(--widget-text-color) !important;
 }
 
 .bot-message .message-content li {
-    margin: 2px 0;
+    margin: 1px 0;
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
 }
