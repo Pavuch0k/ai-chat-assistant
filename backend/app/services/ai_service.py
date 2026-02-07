@@ -195,7 +195,7 @@ class AIService:
         # Ищем релевантную информацию в базе знаний
         print(f"Начинаю поиск в базе знаний для сообщения: {message[:100]}")
         knowledge_context = ""
-        search_results = knowledge_service.search(message, limit=10)  # Увеличиваем лимит до 10
+        search_results = knowledge_service.search(message, limit=5)  # Ограничиваем до 5 для уменьшения контекста
         print(f"Поиск завершен, найдено результатов: {len(search_results) if search_results else 0}")
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
@@ -204,7 +204,9 @@ class AIService:
                 score = result.get('score', 0)
                 text = result['text'][:500]  # Ограничиваем длину для логов
                 print(f"  Фрагмент {i} (score: {score:.3f}): {text[:100]}...")
-                knowledge_context += f"{i}. {result['text']}\n"
+                # Ограничиваем длину каждого фрагмента до 300 символов для уменьшения контекста
+                fragment_text = result['text'][:300]
+                knowledge_context += f"{i}. {fragment_text}\n"
             knowledge_context += "\nЕсли в базе знаний есть информация по запросу пользователя, ОБЯЗАТЕЛЬНО используй её в ответе!"
         else:
             print(f"Поиск в базе знаний не вернул результатов для запроса: {message[:100]}")
@@ -403,7 +405,7 @@ class AIService:
                                 "model": "gpt-4o-mini",
                                 "messages": messages,
                                 "temperature": 0.7,
-                                "max_tokens": 500,
+                                "max_tokens": 800,  # Увеличиваем лимит токенов для ответа
                                 "response_format": {"type": "json_object"}
                             }
                         )
@@ -411,14 +413,18 @@ class AIService:
                         data = response.json()
                         ai_response = data["choices"][0]["message"]["content"]
                         
-                        # Проверяем, что ответ не пустой
+                        # Логируем ответ для отладки
                         if not ai_response or not ai_response.strip():
                             print(f"Получен пустой ответ от ИИ, попытка {parse_attempt + 1}/3")
+                            print(f"Полный ответ API: {data}")
+                            print(f"Choices: {data.get('choices', [])}")
                             if parse_attempt < 2:  # Если не последняя попытка
                                 continue  # Повторяем запрос
                             else:
                                 # Последняя попытка - возвращаем ошибку
                                 return ("Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос.", "", "")
+                        else:
+                            print(f"Получен ответ от ИИ (длина: {len(ai_response)}): {ai_response[:200]}")
                         
                         # Парсим JSON ответ от ИИ
                         extracted_name = ""
