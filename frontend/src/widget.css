@@ -361,16 +361,44 @@
 
 .bot-message .message-content ul,
 .bot-message .message-content ol {
-    margin: 2px 0;
+    margin: 1px 0;
     padding-left: 16px;
-    line-height: 1.5;
+    line-height: 1.4;
     color: var(--widget-text-color) !important;
 }
 
 .bot-message .message-content li {
-    margin: 1px 0;
+    margin: 0.5px 0;
+    padding: 0;
     color: var(--widget-text-color) !important;
     font-size: 15px !important;
+    line-height: 1.4;
+}
+
+/* Убираем отступы между параграфами и списками */
+.bot-message .message-content p + ul,
+.bot-message .message-content p + ol {
+    margin-top: 1px;
+}
+
+.bot-message .message-content ul + p,
+.bot-message .message-content ol + p {
+    margin-top: 1px;
+}
+
+/* Параграфы внутри элементов списка */
+.bot-message .message-content li p {
+    margin: 0;
+    padding: 0;
+    line-height: 1.4;
+}
+
+.bot-message .message-content li p:first-child {
+    margin-top: 0;
+}
+
+.bot-message .message-content li p:last-child {
+    margin-bottom: 0;
 }
 
 .bot-message .message-content strong {
