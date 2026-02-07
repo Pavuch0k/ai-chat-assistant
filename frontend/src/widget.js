@@ -291,6 +291,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
+                    mode: 'cors',
+                    credentials: 'omit',
                     body: JSON.stringify({
                         message: message,
                         session_id: this.sessionId
