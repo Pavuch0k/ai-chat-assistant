@@ -195,7 +195,7 @@
                     this.expandWidget();
                 }
                 this.expandTimer = null;
-            }, 5000); // 5 секунд
+            }, 10000); // 10 секунд
         }
         
         cancelExpandTimer() {
