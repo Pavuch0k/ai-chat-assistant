@@ -381,9 +381,19 @@
     margin-top: 1px;
 }
 
+/* КРИТИЧЕСКИ ВАЖНО: убираем большой отступ после списков */
 .bot-message .message-content ul + p,
-.bot-message .message-content ol + p {
-    margin-top: 1px;
+.bot-message .message-content ol + p,
+.bot-message .message-content ul + p.compact-paragraph,
+.bot-message .message-content ol + p.compact-paragraph {
+    margin-top: 1px !important;
+    margin-bottom: 0 !important;
+}
+
+/* Специальный класс для параграфов после списков */
+.bot-message .message-content p.after-list {
+    margin-top: 1px !important;
+    margin-bottom: 0 !important;
 }
 
 /* Параграфы внутри элементов списка */

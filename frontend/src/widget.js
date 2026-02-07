@@ -330,6 +330,8 @@
                         // Обрабатываем HTML после парсинга: уменьшаем отступы между параграфами
                         // Заменяем </p><p> на </p><p class="compact-paragraph"> для компактных отступов
                         content = content.replace(/<\/p>\s*<p>/g, '</p><p class="compact-paragraph">');
+                        // Убираем отступы после списков - добавляем класс для параграфов после списков
+                        content = content.replace(/(<\/[uo]l>)\s*<p>/g, '$1<p class="after-list">');
                         // Также обрабатываем пустые строки в pre-line тексте
                         content = content.replace(/\n\n+/g, '\n<span class="empty-line"></span>\n');
                     } catch (e) {
@@ -345,6 +347,7 @@
                             if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
                                 let newContent = marked.parse(text);
                                 newContent = newContent.replace(/<\/p>\s*<p>/g, '</p><p class="compact-paragraph">');
+                                newContent = newContent.replace(/(<\/[uo]l>)\s*<p>/g, '$1<p class="after-list">');
                                 newContent = newContent.replace(/\n\n+/g, '\n<span class="empty-line"></span>\n');
                                 messageDiv.querySelector('.message-content').innerHTML = newContent;
                             }
