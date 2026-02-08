@@ -82,12 +82,12 @@ class KnowledgeService:
             print(f"Error adding document to knowledge base: {e}")
             return False
     
-    def search(self, query: str, limit: int = 10, score_threshold: float = 0.2) -> List[dict]:
+    def search(self, query: str, limit: int = 10, score_threshold: float = 0.15) -> List[dict]:
         """Поиск в базе знаний с гибридным поиском"""
         try:
             import re
             
-            # Нормализуем запрос: убираем лишние слова для лучшего поиска имен
+            # Нормализуем запрос: убираем лишние слова для лучшего поиска
             query_normalized = query.lower().strip()
             extracted_name = None
             
@@ -104,6 +104,27 @@ class KnowledgeService:
                     print(f"Извлечено имя из запроса: {query_normalized}")
                     break
             
+            # Улучшенная нормализация для поиска тарифов/цен
+            # Заменяем синонимы на ключевые слова для лучшего поиска
+            tariff_synonyms = {
+                'тариф': 'тариф',
+                'тарифы': 'тариф',
+                'цена': 'тариф',
+                'цены': 'тариф',
+                'стоимость': 'тариф',
+                'прайс': 'тариф',
+                'расскажи о тарифах': 'тариф',
+                'какие цены': 'тариф',
+                'сколько стоит': 'тариф',
+            }
+            for synonym, keyword in tariff_synonyms.items():
+                if synonym in query_normalized:
+                    query_normalized = keyword
+                    print(f"Нормализован запрос для поиска тарифов: {query_normalized}")
+                    break
+            
+            print(f"Поиск в базе знаний: исходный запрос='{query}', нормализованный='{query_normalized}'")
+            
             # Создаем эмбеддинг для запроса
             embedding_model = self._get_embedding_model()
             query_embedding = embedding_model.embed_query(query_normalized)
@@ -112,8 +133,10 @@ class KnowledgeService:
             results = self.qdrant_client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
-                limit=limit * 2  # Берем больше для гибридного поиска
+                limit=limit * 3  # Берем еще больше для лучшего поиска
             )
+            
+            print(f"Qdrant вернул {len(results)} результатов, проверяем порог {score_threshold}")
             
             # Формируем результат
             search_results = []
@@ -129,6 +152,14 @@ class KnowledgeService:
                         score = min(1.0, score + 0.2)
                         print(f"  Повышен score для фрагмента с именем: {score:.3f}")
                 
+                # Повышаем score если ключевые слова найдены в тексте
+                if 'тариф' in query_normalized or 'цена' in query_normalized or 'стоимость' in query_normalized:
+                    if any(word in text.lower() for word in ['тариф', 'цена', 'стоимость', 'руб', '₽']):
+                        score = min(1.0, score + 0.1)
+                        print(f"  Повышен score для фрагмента с тарифами: {score:.3f}")
+                
+                print(f"  Результат: score={score:.3f}, text={text[:50]}...")
+                
                 if score >= score_threshold:
                     search_results.append({
                         "text": text,
@@ -140,16 +171,24 @@ class KnowledgeService:
             search_results.sort(key=lambda x: x['score'], reverse=True)
             final_results = search_results[:limit]
             
+            print(f"После фильтрации по порогу {score_threshold}: {len(final_results)} результатов")
+            
             # Если нет результатов с порогом, пробуем более низкий порог
             if not final_results and results:
-                print(f"Не найдено результатов с порогом {score_threshold}, используем топ результаты")
-                for result in results[:limit]:
-                    final_results.append({
-                        "text": result.payload.get("text", ""),
-                        "score": result.score,
-                        "metadata": {k: v for k, v in result.payload.items() if k != "text"}
-                    })
+                print(f"Не найдено результатов с порогом {score_threshold}, используем топ результаты с более низким порогом")
+                lower_threshold = 0.1
+                for result in results:
+                    score = result.score
+                    if score >= lower_threshold:
+                        final_results.append({
+                            "text": result.payload.get("text", ""),
+                            "score": score,
+                            "metadata": {k: v for k, v in result.payload.items() if k != "text"}
+                        })
+                        if len(final_results) >= limit:
+                            break
             
+            print(f"Итоговое количество результатов: {len(final_results)}")
             return final_results
         except Exception as e:
             print(f"Error searching knowledge base: {e}")
