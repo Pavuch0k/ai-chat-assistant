@@ -13,6 +13,7 @@ RUN pip install --upgrade pip
 
 # Копируем только requirements для кэширования слоя зависимостей
 COPY requirements.txt .
+# Устанавливаем зависимости (PyTorch CPU-only указан в requirements.txt)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения
