@@ -198,7 +198,17 @@
                 this.toggleChat();
             });
             
-            document.getElementById('send-button').addEventListener('click', () => this.sendMessage());
+            // Обработка кнопки отправки с поддержкой touch-событий для мобильных
+            const sendButton = document.getElementById('send-button');
+            const handleSendClick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                this.sendMessage();
+            };
+            sendButton.addEventListener('click', handleSendClick);
+            sendButton.addEventListener('touchend', handleSendClick);
+            
             document.getElementById('chat-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.sendMessage();
             });
@@ -286,7 +296,29 @@
             }
             
             try {
-                const response = await fetch(`${API_URL}/api/chat`, {
+                // Определяем правильный API URL (аналогично loadWidgetSettings)
+                // Это важно для избежания CORS проблем между localhost и 127.0.0.1
+                let apiUrl = API_URL;
+                if (!apiUrl || apiUrl === 'http://localhost:8000') {
+                    const protocol = window.location.protocol;
+                    const hostname = window.location.hostname;
+                    const port = window.location.port;
+                    
+                    // Если frontend и backend на одном домене, используем тот же hostname
+                    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+                        apiUrl = `${protocol}//${hostname}:8000`;
+                    } else if (hostname === '127.0.0.1') {
+                        // Если frontend на 127.0.0.1, используем 127.0.0.1 для backend (важно для CORS!)
+                        apiUrl = 'http://127.0.0.1:8000';
+                    } else if (port === '8080' || port === '') {
+                        // Если frontend на порту 8080 (docker) или без порта, используем localhost:8000
+                        apiUrl = 'http://localhost:8000';
+                    } else {
+                        apiUrl = API_URL || 'http://localhost:8000';
+                    }
+                }
+                
+                const response = await fetch(`${apiUrl}/api/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

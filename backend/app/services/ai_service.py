@@ -212,12 +212,15 @@ class AIService:
         fixed_tokens = system_tokens + user_message_tokens + knowledge_tokens
         
         # Overhead для форматирования JSON и других служебных токенов
-        overhead_tokens = 100
+        overhead_tokens = 500  # Overhead для безопасности
         
-        # Доступные токены для истории (оставляем запас для ответа)
+        # Оставляем запас для ответа (max_response_tokens + небольшой буфер)
+        response_reserve = max_response_tokens + 1000  # Запас для ответа и буфер
+        
+        # Доступные токены для истории
         # Общий лимит модели GPT-4o-mini: 128k токенов
-        # Оставляем место для ответа и overhead
-        available_tokens = max_context_tokens - fixed_tokens - overhead_tokens
+        # Оставляем место для ответа, overhead и запаса
+        available_tokens = max_context_tokens - fixed_tokens - overhead_tokens - response_reserve
         
         # Если не хватает места даже без истории, возвращаем пустую историю
         if available_tokens < 100:  # Минимум 100 токенов для истории
@@ -234,6 +237,20 @@ class AIService:
             history_tokens.append((msg, msg_tokens))
             total_history_tokens += msg_tokens
         
+        # Ограничиваем историю максимум 20 последними сообщениями для оптимизации
+        # Это предотвращает переполнение при очень длинных диалогах
+        max_history_messages = 20
+        if len(conversation_history) > max_history_messages:
+            conversation_history = conversation_history[-max_history_messages:]
+            # Пересчитываем токены для ограниченной истории
+            history_tokens = []
+            total_history_tokens = 0
+            for msg in conversation_history:
+                content = msg.get("content", "")
+                msg_tokens = estimate_tokens(content)
+                history_tokens.append((msg, msg_tokens))
+                total_history_tokens += msg_tokens
+        
         # Если история помещается, возвращаем её полностью
         if total_history_tokens <= available_tokens:
             return conversation_history
@@ -243,8 +260,11 @@ class AIService:
         current_tokens = 0
         
         # Идем с конца истории (новые сообщения важнее старых)
+        # Используем 90% от available_tokens для эффективного использования места
+        safe_available_tokens = int(available_tokens * 0.9)
+        
         for msg, msg_tokens in reversed(history_tokens):
-            if current_tokens + msg_tokens <= available_tokens:
+            if current_tokens + msg_tokens <= safe_available_tokens:
                 trimmed_history.insert(0, msg)  # Вставляем в начало, чтобы сохранить порядок
                 current_tokens += msg_tokens
             else:
@@ -273,7 +293,7 @@ class AIService:
         # Ищем релевантную информацию в базе знаний
         print(f"Начинаю поиск в базе знаний для сообщения: {message[:100]}")
         knowledge_context = ""
-        search_results = knowledge_service.search(message, limit=3)  # Ограничиваем до 3 для уменьшения контекста
+        search_results = knowledge_service.search(message, limit=3)  # До 3 фрагментов для лучшего контекста
         print(f"Поиск завершен, найдено результатов: {len(search_results) if search_results else 0}")
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
@@ -282,8 +302,8 @@ class AIService:
                 score = result.get('score', 0)
                 text = result['text'][:500]  # Ограничиваем длину для логов
                 print(f"  Фрагмент {i} (score: {score:.3f}): {text[:100]}...")
-                # Ограничиваем длину каждого фрагмента до 200 символов для уменьшения контекста
-                fragment_text = result['text'][:200]
+                # Ограничиваем длину каждого фрагмента до 300 символов для достаточного контекста
+                fragment_text = result['text'][:300]
                 knowledge_context += f"{i}. {fragment_text}\n"
             knowledge_context += "\nЕсли в базе знаний есть информация по запросу пользователя, ОБЯЗАТЕЛЬНО используй её в ответе!"
         else:
@@ -455,15 +475,15 @@ class AIService:
             user_message_content = message + knowledge_context
         
         # Динамически обрезаем историю, чтобы уместиться в лимит токенов
-        # Лимит: 50k токенов для контекста (оставляем запас для ответа 2k токенов)
-        # Общий лимит GPT-4o-mini: 128k токенов
+        # Лимит GPT-4o-mini: 128k токенов (контекст + ответ)
+        # Используем 100k для контекста, оставляем 28k для ответа и запаса
         trimmed_history = self._trim_history_to_fit_tokens(
             system_prompt=system_prompt,
             conversation_history=conversation_history if conversation_history else [],
             user_message=user_message_content,
             knowledge_context=knowledge_context if knowledge_context else "",
-            max_context_tokens=50000,  # 50k токенов для контекста (безопасный лимит)
-            max_response_tokens=2000  # 2k токенов для ответа
+            max_context_tokens=100000,  # 100k токенов для контекста (оставляем запас 28k)
+            max_response_tokens=3000  # 3k токенов для ответа (разумный лимит)
         )
         
         messages = [
@@ -524,7 +544,7 @@ class AIService:
                                 "model": "gpt-4o-mini",
                                 "messages": messages,
                                 "temperature": 0.7,
-                                "max_tokens": 2000,  # Лимит токенов для ответа (увеличен для длинных ответов)
+                                "max_tokens": 3000,  # Лимит токенов для ответа (достаточно для длинных ответов)
                                 "response_format": {"type": "json_object"}
                             }
                         )
@@ -533,36 +553,13 @@ class AIService:
                         
                         # Проверяем finish_reason
                         finish_reason = data["choices"][0].get("finish_reason", "")
-                        if finish_reason == "length":
-                            logger.warning(f"Ответ обрезан из-за лимита токенов (finish_reason=length). Попытка {parse_attempt + 1}/3")
-                            # Если ответ обрезан, пробуем еще раз с более агрессивной обрезкой истории
-                            if parse_attempt < 2:
-                                # Пересчитываем историю с более строгими параметрами
-                                trimmed_history_retry = self._trim_history_to_fit_tokens(
-                                    system_prompt=system_prompt,
-                                    conversation_history=conversation_history if conversation_history else [],
-                                    user_message=user_message_content,
-                                    knowledge_context=knowledge_context if knowledge_context else "",
-                                    max_context_tokens=30000,  # Еще более строгий лимит
-                                    max_response_tokens=2000
-                                )
-                                # Ограничиваем до последних 3 сообщений максимум
-                                trimmed_history_retry = trimmed_history_retry[-3:] if len(trimmed_history_retry) > 3 else trimmed_history_retry
-                                
-                                messages = [
-                                    {"role": "system", "content": system_prompt}
-                                ]
-                                messages.extend(trimmed_history_retry)
-                                messages.append({
-                                    "role": "user",
-                                    "content": user_message_content
-                                })
-                                continue  # Повторяем запрос
-                            else:
-                                # Последняя попытка - возвращаем ошибку
-                                return ("Извините, ответ слишком длинный. Попробуйте задать вопрос короче или переформулировать его.", "", "")
-                        
                         ai_response = data["choices"][0]["message"]["content"]
+                        
+                        # Если ответ обрезан, используем его как есть (не делаем повторные попытки)
+                        if finish_reason == "length":
+                            logger.warning(f"Ответ обрезан из-за лимита токенов (finish_reason=length), но используем его как есть")
+                            # Пытаемся извлечь JSON из обрезанного ответа
+                            # Если не получится - вернем ошибку только при последней попытке
                         
                         # Логируем ответ для отладки
                         if not ai_response or not ai_response.strip():
