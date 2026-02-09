@@ -561,9 +561,14 @@ class AIService:
                             # Пытаемся извлечь JSON из обрезанного ответа
                             # Если не получится - вернем ошибку только при последней попытке
                         
+                        # Проверяем, что ответ содержит реальный контент (не только пробелы/табуляции)
+                        ai_response_clean = ai_response.strip() if ai_response else ""
+                        # Проверяем, есть ли в ответе хотя бы один символ, который не пробел/табуляция/перенос строки
+                        has_real_content = bool(ai_response_clean and any(c not in ' \t\n\r' for c in ai_response_clean))
+                        
                         # Логируем ответ для отладки
-                        if not ai_response or not ai_response.strip():
-                            print(f"Получен пустой ответ от ИИ, попытка {parse_attempt + 1}/3")
+                        if not has_real_content:
+                            print(f"Получен пустой/некорректный ответ от ИИ (только пробелы/табуляции), попытка {parse_attempt + 1}/3")
                             print(f"Полный ответ API: {data}")
                             print(f"Choices: {data.get('choices', [])}")
                             if parse_attempt < 2:  # Если не последняя попытка
