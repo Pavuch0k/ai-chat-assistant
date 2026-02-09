@@ -298,12 +298,17 @@ class AIService:
         if search_results:
             print(f"Найдено {len(search_results)} релевантных фрагментов из базы знаний")
             knowledge_context = "\n\nСПРАВОЧНАЯ ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ (используй РАЗУМНО, только если релевантно):\n"
-            for i, result in enumerate(search_results, 1):
+            # Для коротких запросов (1-2 слова) уменьшаем размер фрагментов
+            is_short_query = len(message.split()) <= 2
+            fragment_limit = 200 if is_short_query else 300
+            max_fragments = 2 if is_short_query else 3
+            
+            for i, result in enumerate(search_results[:max_fragments], 1):
                 score = result.get('score', 0)
                 text = result['text'][:500]  # Ограничиваем длину для логов
                 print(f"  Фрагмент {i} (score: {score:.3f}): {text[:100]}...")
-                # Ограничиваем длину каждого фрагмента до 300 символов для достаточного контекста
-                fragment_text = result['text'][:300]
+                # Ограничиваем длину каждого фрагмента
+                fragment_text = result['text'][:fragment_limit]
                 knowledge_context += f"{i}. {fragment_text}\n"
             knowledge_context += "\nВАЖНО: ТЫ САМ ПРИНИМАЕШЬ РЕШЕНИЕ - используй эту информацию ТОЛЬКО если она РЕЛЕВАНТНА и УМЕСТНА для ответа. Если информация не подходит к контексту разговора (например, при простом приветствии) или делает ответ неестественным - НЕ используй её. Отвечай естественно и по делу."
         else:
@@ -561,11 +566,30 @@ class AIService:
                         finish_reason = data["choices"][0].get("finish_reason", "")
                         ai_response = data["choices"][0]["message"]["content"]
                         
-                        # Если ответ обрезан, используем его как есть (не делаем повторные попытки)
-                        if finish_reason == "length":
-                            logger.warning(f"Ответ обрезан из-за лимита токенов (finish_reason=length), но используем его как есть")
-                            # Пытаемся извлечь JSON из обрезанного ответа
-                            # Если не получится - вернем ошибку только при последней попытке
+                        # Если ответ обрезан, сразу обрезаем историю более агрессивно и повторяем запрос
+                        if finish_reason == "length" and parse_attempt < 2:
+                            logger.warning(f"Ответ обрезан из-за лимита токенов (finish_reason=length), попытка {parse_attempt + 1}/3. Обрезаю историю более агрессивно.")
+                            # Обрезаем историю до последних 2-3 сообщений
+                            trimmed_history_aggressive = self._trim_history_to_fit_tokens(
+                                system_prompt=system_prompt,
+                                conversation_history=conversation_history if conversation_history else [],
+                                user_message=user_message_content,
+                                knowledge_context=knowledge_context if knowledge_context else "",
+                                max_context_tokens=15000,  # Более строгий лимит
+                                max_response_tokens=2000  # Увеличиваем место для ответа
+                            )
+                            # Ограничиваем до последних 3 сообщений максимум
+                            trimmed_history_aggressive = trimmed_history_aggressive[-3:] if len(trimmed_history_aggressive) > 3 else trimmed_history_aggressive
+                            
+                            messages = [
+                                {"role": "system", "content": system_prompt}
+                            ]
+                            messages.extend(trimmed_history_aggressive)
+                            messages.append({
+                                "role": "user",
+                                "content": user_message_content
+                            })
+                            continue  # Повторяем запрос с обрезанной историей
                         
                         # Проверяем, что ответ содержит реальный контент (не только пробелы/табуляции)
                         ai_response_clean = ai_response.strip() if ai_response else ""
