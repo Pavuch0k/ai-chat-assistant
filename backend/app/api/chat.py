@@ -134,6 +134,9 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 "content": msg.response or ""
             })
     
+    # Подсчитываем количество ответов бота в истории
+    bot_responses_count = sum(1 for msg in conversation_history_for_ai if msg.get("role") == "assistant")
+    
     # Формируем информацию о собранных контактах для промпта
     contact_status_for_ai = ""
     if contact:
@@ -145,6 +148,17 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             contact_status_for_ai = f"\n\nВАЖНО: Имя клиента уже известно: {contact.name}. Нужно собрать только номер телефона."
         elif has_phone:
             contact_status_for_ai = f"\n\nВАЖНО: Телефон клиента уже известен: {contact.phone}. Нужно собрать только имя."
+    
+    # Проверяем, является ли текущее сообщение коротким ответом ("нет", "никакого" и т.д.)
+    short_answers = ["нет", "не", "никакого", "не знаю", "не интересно", "не хочу", "не нужно"]
+    is_short_answer = request.message.lower().strip() in short_answers or len(request.message.strip()) < 10
+    
+    # Добавляем информацию о количестве ответов бота и коротких ответах клиента
+    if not contact or (not contact.name or not contact.phone):
+        if bot_responses_count >= 2 or (bot_responses_count >= 1 and is_short_answer):
+            contact_status_for_ai += f"\n\nКРИТИЧЕСКИ ВАЖНО: Ты уже дал {bot_responses_count} ответ(ов) клиенту. Клиент дал короткий ответ или не задал новый вопрос. ОБЯЗАТЕЛЬНО начни собирать контакты СЕЙЧАС естественной формулировкой:\n- 'Отлично! Чтобы подобрать для вас оптимальную программу, как вас зовут?'\n- 'Хорошо! Для подбора программы обучения мне нужно ваше имя. Как вас зовут?'\n- 'Понятно! Чтобы наш менеджер связался с вами и рассказал все детали, как вас зовут?'\nНИКОГДА не пиши 'Затрудняюсь ответить' или 'Не могу ответить' - просто естественно переходи к сбору контактов!"
+        elif bot_responses_count >= 1:
+            contact_status_for_ai += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответ клиенту. После ответа на текущий вопрос обязательно начни собирать контакты естественной формулировкой, если клиент не задаст новый вопрос."
     
     # Получаем ответ от AI с учетом истории и статуса контактов
     # ВАЖНО: делаем это ДО создания/обновления контакта, чтобы использовать данные из ответа ИИ
@@ -307,6 +321,9 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 "content": msg.response or ""
             })
     
+    # Подсчитываем количество ответов бота в истории
+    bot_responses_count = sum(1 for msg in conversation_history if msg.get("role") == "assistant")
+    
     # Формируем информацию о собранных контактах для промпта
     contact_status = ""
     if contact:
@@ -318,6 +335,17 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             contact_status = f"\n\nВАЖНО: Имя клиента уже известно: {contact.name}. Нужно собрать только номер телефона."
         elif has_phone:
             contact_status = f"\n\nВАЖНО: Телефон клиента уже известен: {contact.phone}. Нужно собрать только имя."
+    
+    # Проверяем, является ли текущее сообщение коротким ответом ("нет", "никакого" и т.д.)
+    short_answers = ["нет", "не", "никакого", "не знаю", "не интересно", "не хочу", "не нужно"]
+    is_short_answer = request.message.lower().strip() in short_answers or len(request.message.strip()) < 10
+    
+    # Добавляем информацию о количестве ответов бота и коротких ответах клиента
+    if not contact or (not contact.name or not contact.phone):
+        if bot_responses_count >= 2 or (bot_responses_count >= 1 and is_short_answer):
+            contact_status += f"\n\nКРИТИЧЕСКИ ВАЖНО: Ты уже дал {bot_responses_count} ответ(ов) клиенту. Клиент дал короткий ответ или не задал новый вопрос. ОБЯЗАТЕЛЬНО начни собирать контакты СЕЙЧАС естественной формулировкой:\n- 'Отлично! Чтобы подобрать для вас оптимальную программу, как вас зовут?'\n- 'Хорошо! Для подбора программы обучения мне нужно ваше имя. Как вас зовут?'\n- 'Понятно! Чтобы наш менеджер связался с вами и рассказал все детали, как вас зовут?'\nНИКОГДА не пиши 'Затрудняюсь ответить' или 'Не могу ответить' - просто естественно переходи к сбору контактов!"
+        elif bot_responses_count >= 1:
+            contact_status += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответ клиенту. После ответа на текущий вопрос обязательно начни собирать контакты естественной формулировкой, если клиент не задаст новый вопрос."
     
     # Получаем ответ от AI с учетом истории и статуса контактов
     # ВАЖНО: это второй вызов для сохранения ответа в БД, но данные из ИИ уже использованы выше
