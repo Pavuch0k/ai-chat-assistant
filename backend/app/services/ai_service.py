@@ -241,9 +241,9 @@ class AIService:
             history_tokens.append((msg, msg_tokens))
             total_history_tokens += msg_tokens
         
-        # Ограничиваем историю максимум 20 последними сообщениями для оптимизации
+        # Ограничиваем историю максимум 6 последними сообщениями для оптимизации
         # Это предотвращает переполнение при очень длинных диалогах
-        max_history_messages = 20
+        max_history_messages = 6
         if len(conversation_history) > max_history_messages:
             conversation_history = conversation_history[-max_history_messages:]
             # Пересчитываем токены для ограниченной истории
@@ -306,19 +306,25 @@ class AIService:
         
         system_prompt = """Ты ассистент поддержки. Помогаешь клиентам и естественно собираешь контакты (имя и телефон).
 
-🚨 ПРАВИЛО #1 - КРИТИЧЕСКИ ВАЖНОЕ (ОБЯЗАТЕЛЬНО К ИСПОЛНЕНИЮ):
-▶ КАЖДОЕ твоё сообщение ОБЯЗАТЕЛЬНО заканчивается ВОПРОСОМ со знаком "?"
-▶ НИКОГДА не заканчивай фразами без вопроса:
-   ❌ "дайте знать"
-   ❌ "если интересует, сообщите"
-   ❌ "обращайтесь"
-   ❌ "напишите"
-   ❌ любые другие утверждения/просьбы БЕЗ "?"
-▶ ВСЕГДА используй вопросительные конструкции:
-   ✅ "Что именно вас интересует?"
-   ✅ "Какой формат обучения вы рассматриваете?"
-   ✅ "Хотите узнать о наших курсах?"
-   ✅ "Для какого возраста нужна программа?"
+🚨🚨🚨 ПРАВИЛО #1 - АБСОЛЮТНО ОБЯЗАТЕЛЬНОЕ 🚨🚨🚨
+▶▶▶ КАЖДОЕ твоё сообщение ОБЯЗАТЕЛЬНО заканчивается ВОПРОСОМ "?"
+▶▶▶ Последнее предложение ВСЕГДА должно быть ВОПРОСОМ со знаком "?"
+
+КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО заканчивать сообщения фразами:
+❌❌❌ "дайте знать"
+❌❌❌ "если интересует, сообщите"
+❌❌❌ "обращайтесь"
+❌❌❌ "напишите"
+❌❌❌ "буду рад помочь"
+❌❌❌ любые утверждения БЕЗ "?"
+
+ОБЯЗАТЕЛЬНО используй вопросы:
+✅✅✅ "Что именно вас интересует?"
+✅✅✅ "Какой формат обучения рассматриваете?"
+✅✅✅ "Хотите узнать о наших курсах?"
+✅✅✅ "Для какого возраста нужна программа?"
+
+ПРОВЕРЬ: Твой ответ ОБЯЗАТЕЛЬНО должен заканчиваться знаком "?" - иначе это ОШИБКА!
 
 ИСПОЛЬЗОВАНИЕ БАЗЫ ЗНАНИЙ:
 - Используй информацию из БЗ ТОЛЬКО если она РЕЛЕВАНТНА вопросу
@@ -377,15 +383,15 @@ class AIService:
 
         # Динамически обрезаем историю, чтобы уместиться в лимит токенов
         # Лимит GPT-4o-mini: 128k токенов (контекст + ответ)
-        # Используем 100k для контекста, оставляем 28k для ответа и запаса
+        # ОПТИМИЗАЦИЯ: Используем КОНСЕРВАТИВНЫЕ лимиты для предотвращения переполнения
         # ВАЖНО: передаем в _trim_history_to_fit_tokens только оригинальное сообщение без контекста из базы знаний
         trimmed_history = self._trim_history_to_fit_tokens(
             system_prompt=system_prompt,
             conversation_history=conversation_history if conversation_history else [],
             user_message=message,  # Передаем оригинальное сообщение без контекста из базы знаний
             knowledge_context=knowledge_context if knowledge_context else "",
-            max_context_tokens=100000,  # 100k токенов для контекста (оставляем запас 28k)
-            max_response_tokens=3000  # 3k токенов для ответа (разумный лимит)
+            max_context_tokens=15000,  # 15k токенов для контекста (строгий лимит)
+            max_response_tokens=500  # 500 токенов для ответа (короткие ответы)
         )
 
         messages = [
@@ -403,7 +409,72 @@ class AIService:
             "role": "user",
             "content": user_message_content  # Сообщение + контекст из базы знаний для текущего запроса
         })
-        
+
+        # ============================================================
+        # ПРЕДВАРИТЕЛЬНЫЙ РАСЧЁТ ТОКЕНОВ ПЕРЕД ОТПРАВКОЙ ЗАПРОСА
+        # ============================================================
+        system_tokens_calc = estimate_tokens(system_prompt)
+        history_tokens_calc = sum(estimate_tokens(msg.get("content", "")) for msg in trimmed_history)
+        current_message_tokens_calc = estimate_tokens(user_message_content)
+
+        # Общее количество токенов в запросе (контекст)
+        total_input_tokens = system_tokens_calc + history_tokens_calc + current_message_tokens_calc
+
+        # Ожидаемое количество токенов в ответе (макс)
+        max_output_tokens = 500  # Наш лимит
+
+        # Общее количество токенов (контекст + ответ)
+        total_tokens_expected = total_input_tokens + max_output_tokens
+
+        # Лимиты модели GPT-4o-mini
+        model_context_limit = 128000  # 128k токенов
+        our_context_limit = 15000     # Наш лимит контекста
+        our_output_limit = 500        # Наш лимит ответа
+
+        # Логирование детального расчёта
+        logger.info("=" * 70)
+        logger.info("📊 ПРЕДВАРИТЕЛЬНЫЙ РАСЧЁТ ТОКЕНОВ:")
+        logger.info("-" * 70)
+        logger.info(f"  Системный промпт:     {system_tokens_calc:>6} токенов")
+        logger.info(f"  История ({len(trimmed_history)} сообщений): {history_tokens_calc:>6} токенов")
+        logger.info(f"  Текущее сообщение:    {current_message_tokens_calc:>6} токенов")
+        logger.info("-" * 70)
+        logger.info(f"  ИТОГО КОНТЕКСТ:       {total_input_tokens:>6} токенов")
+        logger.info(f"  Макс ответ:           {max_output_tokens:>6} токенов")
+        logger.info(f"  ВСЕГО ОЖИДАЕТСЯ:      {total_tokens_expected:>6} токенов")
+        logger.info("-" * 70)
+        logger.info(f"  Лимит модели:         {model_context_limit:>6} токенов")
+        logger.info(f"  Наш лимит контекста:  {our_context_limit:>6} токенов")
+        logger.info(f"  Наш лимит ответа:     {our_output_limit:>6} токенов")
+        logger.info("-" * 70)
+
+        # Проверка соответствия лимитам
+        context_usage_percent = (total_input_tokens / our_context_limit) * 100
+        model_usage_percent = (total_tokens_expected / model_context_limit) * 100
+
+        logger.info(f"  Использование контекста: {context_usage_percent:.1f}% от нашего лимита")
+        logger.info(f"  Использование модели:    {model_usage_percent:.1f}% от лимита модели")
+
+        # Предупреждения
+        if total_input_tokens > our_context_limit:
+            logger.error(f"❌ ПРЕВЫШЕН НАШ ЛИМИТ КОНТЕКСТА! {total_input_tokens} > {our_context_limit}")
+            logger.error("   Требуется более агрессивная обрезка истории!")
+        elif context_usage_percent > 80:
+            logger.warning(f"⚠️  Близко к лимиту контекста ({context_usage_percent:.1f}%)")
+        elif context_usage_percent > 60:
+            logger.info(f"ℹ️  Умеренное использование контекста ({context_usage_percent:.1f}%)")
+        else:
+            logger.info(f"✅ Оптимальное использование контекста ({context_usage_percent:.1f}%)")
+
+        if total_tokens_expected > model_context_limit:
+            logger.error(f"❌ ПРЕВЫШЕН ЛИМИТ МОДЕЛИ! {total_tokens_expected} > {model_context_limit}")
+        elif model_usage_percent > 50:
+            logger.warning(f"⚠️  Использовано более 50% лимита модели ({model_usage_percent:.1f}%)")
+        else:
+            logger.info(f"✅ Безопасное использование модели ({model_usage_percent:.1f}%)")
+
+        logger.info("=" * 70)
+
         # Настройка прокси для httpx
         proxies = None
         if self.local_socks_port:
@@ -446,13 +517,48 @@ class AIService:
                                 "model": "gpt-4o-mini",
                                 "messages": messages,
                                 "temperature": 0.7,
-                                "max_tokens": 3000,  # Лимит токенов для ответа (достаточно для длинных ответов)
+                                "max_tokens": 500,  # Лимит токенов для ответа (короткие ответы бота)
                                 "response_format": {"type": "json_object"}
                             }
                         )
                         response.raise_for_status()
                         data = response.json()
-                        
+
+                        # ============================================================
+                        # РЕАЛЬНЫЕ ТОКЕНЫ ОТ OPENAI API
+                        # ============================================================
+                        usage = data.get("usage", {})
+                        actual_prompt_tokens = usage.get("prompt_tokens", 0)
+                        actual_completion_tokens = usage.get("completion_tokens", 0)
+                        actual_total_tokens = usage.get("total_tokens", 0)
+
+                        # Логирование реальных токенов
+                        logger.info("=" * 70)
+                        logger.info("📈 РЕАЛЬНЫЕ ТОКЕНЫ ОТ OPENAI API:")
+                        logger.info("-" * 70)
+                        logger.info(f"  Prompt (контекст):    {actual_prompt_tokens:>6} токенов")
+                        logger.info(f"  Completion (ответ):   {actual_completion_tokens:>6} токенов")
+                        logger.info(f"  ИТОГО:                {actual_total_tokens:>6} токенов")
+                        logger.info("-" * 70)
+
+                        # Сравнение с предварительным расчётом
+                        prompt_diff = actual_prompt_tokens - total_input_tokens
+                        prompt_diff_percent = (prompt_diff / total_input_tokens * 100) if total_input_tokens > 0 else 0
+
+                        logger.info(f"  Расчёт vs Реальность (промпт): {total_input_tokens} → {actual_prompt_tokens}")
+                        if abs(prompt_diff_percent) > 10:
+                            logger.warning(f"  ⚠️  Разница: {prompt_diff:+d} токенов ({prompt_diff_percent:+.1f}%)")
+                        else:
+                            logger.info(f"  ✅ Точность: {prompt_diff:+d} токенов ({prompt_diff_percent:+.1f}%)")
+
+                        # Проверка эффективности ответа
+                        if actual_completion_tokens >= max_output_tokens * 0.9:
+                            logger.warning(f"  ⚠️  Ответ близок к лимиту ({actual_completion_tokens}/{max_output_tokens})")
+                        else:
+                            logger.info(f"  ✅ Ответ в пределах лимита ({actual_completion_tokens}/{max_output_tokens})")
+
+                        logger.info("=" * 70)
+
                         # Проверяем finish_reason
                         finish_reason = data["choices"][0].get("finish_reason", "")
                         ai_response = data["choices"][0]["message"]["content"]
@@ -460,17 +566,17 @@ class AIService:
                         # Если ответ обрезан, сразу обрезаем историю более агрессивно и повторяем запрос
                         if finish_reason == "length" and parse_attempt < 2:
                             logger.warning(f"Ответ обрезан из-за лимита токенов (finish_reason=length), попытка {parse_attempt + 1}/3. Обрезаю историю более агрессивно.")
-                            # Обрезаем историю до последних 2-3 сообщений
+                            # Обрезаем историю до последних 2 сообщений
                             trimmed_history_aggressive = self._trim_history_to_fit_tokens(
                                 system_prompt=system_prompt,
                                 conversation_history=conversation_history if conversation_history else [],
                                 user_message=user_message_content,
                                 knowledge_context=knowledge_context if knowledge_context else "",
-                                max_context_tokens=15000,  # Более строгий лимит
-                                max_response_tokens=2000  # Увеличиваем место для ответа
+                                max_context_tokens=8000,  # ЭКСТРЕМАЛЬНО строгий лимит
+                                max_response_tokens=500  # Место для ответа
                             )
-                            # Ограничиваем до последних 3 сообщений максимум
-                            trimmed_history_aggressive = trimmed_history_aggressive[-3:] if len(trimmed_history_aggressive) > 3 else trimmed_history_aggressive
+                            # Ограничиваем до последнего 1 сообщения максимум
+                            trimmed_history_aggressive = trimmed_history_aggressive[-1:] if len(trimmed_history_aggressive) > 1 else trimmed_history_aggressive
                             
                             messages = [
                                 {"role": "system", "content": system_prompt}
@@ -591,6 +697,29 @@ class AIService:
                             # Финальная проверка: если response_text пустой, возвращаем сообщение об ошибке
                             if not response_text or not response_text.strip():
                                 response_text = "Извините, произошла ошибка при обработке запроса. Попробуйте переформулировать вопрос."
+
+                            # ============================================================
+                            # ИТОГОВОЕ РЕЗЮМЕ ЗАПРОСА
+                            # ============================================================
+                            response_length = len(response_text)
+                            logger.info("=" * 70)
+                            logger.info("✅ ЗАПРОС УСПЕШНО ЗАВЕРШЁН")
+                            logger.info("-" * 70)
+                            logger.info(f"  Длина ответа: {response_length} символов")
+                            logger.info(f"  Извлечено имя: {'Да (' + extracted_name + ')' if extracted_name else 'Нет'}")
+                            logger.info(f"  Извлечён телефон: {'Да (' + extracted_phone + ')' if extracted_phone else 'Нет'}")
+                            logger.info(f"  Finish reason: {finish_reason}")
+                            logger.info(f"  Попыток парсинга: {parse_attempt + 1}")
+                            logger.info("-" * 70)
+                            logger.info(f"  💰 Стоимость запроса:")
+                            input_cost = (actual_prompt_tokens / 1_000_000) * 0.150  # $0.150 за 1M токенов
+                            output_cost = (actual_completion_tokens / 1_000_000) * 0.600  # $0.600 за 1M токенов
+                            total_cost = input_cost + output_cost
+                            logger.info(f"     Input:  {actual_prompt_tokens} токенов × $0.150/1M = ${input_cost:.6f}")
+                            logger.info(f"     Output: {actual_completion_tokens} токенов × $0.600/1M = ${output_cost:.6f}")
+                            logger.info(f"     ИТОГО: ${total_cost:.6f}")
+                            logger.info("=" * 70)
+
                             return (response_text, extracted_name, extracted_phone)
                         
                         # Если дошли сюда и parse_success = False, значит это была последняя попытка
