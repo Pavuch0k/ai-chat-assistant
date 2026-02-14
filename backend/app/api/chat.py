@@ -155,16 +155,46 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     
     # Добавляем информацию о количестве ответов бота и коротких ответах клиента
     if not contact or (not contact.name or not contact.phone):
-        if bot_responses_count >= 2 or (bot_responses_count >= 1 and is_short_answer):
-            contact_status_for_ai += f"\n\nКРИТИЧЕСКИ ВАЖНО: Ты уже дал {bot_responses_count} ответ(ов) клиенту. Клиент дал короткий ответ или не задал новый вопрос. ОБЯЗАТЕЛЬНО начни собирать контакты СЕЙЧАС естественной формулировкой:\n- 'Отлично! Чтобы подобрать для вас оптимальную программу, как вас зовут?'\n- 'Хорошо! Для подбора программы обучения мне нужно ваше имя. Как вас зовут?'\n- 'Понятно! Чтобы наш менеджер связался с вами и рассказал все детали, как вас зовут?'\nНИКОГДА не пиши 'Затрудняюсь ответить' или 'Не могу ответить' - просто естественно переходи к сбору контактов!"
-        elif bot_responses_count >= 1:
-            contact_status_for_ai += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответ клиенту. После ответа на текущий вопрос обязательно начни собирать контакты естественной формулировкой, если клиент не задаст новый вопрос."
+        if bot_responses_count >= 3 or (bot_responses_count >= 2 and is_short_answer):
+            contact_status_for_ai += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответ(ов) клиенту. После ответа на текущий вопрос НАЧНИ собирать контакты естественной формулировкой:\n- 'Отлично! Чтобы подобрать для вас оптимальную программу, как вас зовут?'\n- 'Хорошо! Для подбора программы обучения мне нужно ваше имя. Как вас зовут?'\nЕсли не знаешь ответ - задай уточняющий вопрос или переходи к сбору контактов."
+        elif bot_responses_count >= 2:
+            contact_status_for_ai += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответа. После текущего ответа скоро нужно начать собирать контакты, но СНАЧАЛА задай еще 1-2 уточняющих вопроса о потребностях клиента."
     
-    # Получаем ответ от AI с учетом истории и статуса контактов
+    # Ищем релевантную информацию в базе знаний для текущего сообщения
+    from app.services.knowledge_service import knowledge_service
+    knowledge_context = ""
+
+    # ОПТИМИЗАЦИЯ: Не используем БЗ для служебных/коротких запросов
+    service_words = ["привет", "здравствуйте", "hi", "hello", "что", "как", "что это", "а", "да", "нет", "хорошо", "ок", "спасибо", "пока"]
+    message_lower = request.message.lower().strip()
+    should_use_knowledge_base = (
+        len(request.message.split()) > 2 or  # Больше 2 слов
+        (message_lower not in service_words and len(message_lower) > 15)  # Не служебное слово и длиннее 15 символов
+    )
+
+    search_results = []
+    if should_use_knowledge_base:
+        search_results = knowledge_service.search(request.message, limit=3)  # До 3 фрагментов для лучшего контекста
+
+    if search_results:
+        knowledge_context = "\n\nСПРАВОЧНАЯ ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ (используй РАЗУМНО, только если релевантно):\n"
+        # Для коротких запросов (1-2 слова) уменьшаем размер фрагментов
+        is_short_query = len(request.message.split()) <= 2
+        fragment_limit = 200 if is_short_query else 300
+        max_fragments = 2 if is_short_query else 3
+
+        for i, result in enumerate(search_results[:max_fragments], 1):
+            score = result.get('score', 0)
+            # Ограничиваем длину каждого фрагмента
+            fragment_text = result['text'][:fragment_limit]
+            knowledge_context += f"{i}. {fragment_text}\n"
+        knowledge_context += "\nВАЖНО: ТЫ САМ ПРИНИМАЕШЬ РЕШЕНИЕ - используй эту информацию ТОЛЬКО если она РЕЛЕВАНТНА и УМЕСТНА для ответа. Если информация не подходит к контексту разговора (например, при простом приветствии) или делает ответ неестественным - НЕ используй её. Отвечай естественно и по делу."
+
+    # Получаем ответ от AI с учетом истории, статуса контактов и контекста из базы знаний
     # ВАЖНО: делаем это ДО создания/обновления контакта, чтобы использовать данные из ответа ИИ
     logger.info(f"Вызываю ai_service.get_response для сообщения: {request.message[:100]}")
     print(f"=== CHAT ENDPOINT: Вызываю ai_service.get_response для сообщения: {request.message[:100]}")
-    response_text, ai_extracted_name, ai_extracted_phone = await ai_service.get_response(request.message, conversation_history_for_ai, contact_status_for_ai)
+    response_text, ai_extracted_name, ai_extracted_phone = await ai_service.get_response(request.message, conversation_history_for_ai, contact_status_for_ai, knowledge_context)
     logger.info(f"Получен ответ от AI: {response_text[:100]}")
     print(f"=== CHAT ENDPOINT: Получен ответ от AI: {response_text[:100]}")
     
@@ -296,60 +326,10 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
             {"contact_id": contact.id}
         )
         db.commit()
-    
-    # Получаем историю сообщений для контекста
-    conversation_history = []
-    if contact:
-        # Берем последние 10 сообщений этого контакта (уменьшено с 50 для уменьшения контекста)
-        messages = db.query(Message).filter(Message.contact_id == contact.id).order_by(Message.created_at.desc()).limit(10).all()
-        messages = list(reversed(messages))  # Возвращаем в хронологическом порядке
-    else:
-        # Если контакта нет, берем сообщения по session_id
-        messages = db.query(Message).filter(Message.session_id == session_id).order_by(Message.created_at.desc()).limit(10).all()
-        messages = list(reversed(messages))  # Возвращаем в хронологическом порядке
-    
-    # Формируем историю разговора (ВАЖНО: исключаем текущее сообщение, оно еще не сохранено)
-    for msg in messages:
-        if msg.is_from_user:
-            conversation_history.append({
-                "role": "user",
-                "content": msg.message
-            })
-        else:
-            conversation_history.append({
-                "role": "assistant",
-                "content": msg.response or ""
-            })
-    
-    # Подсчитываем количество ответов бота в истории
-    bot_responses_count = sum(1 for msg in conversation_history if msg.get("role") == "assistant")
-    
-    # Формируем информацию о собранных контактах для промпта
-    contact_status = ""
-    if contact:
-        has_name = bool(contact.name)
-        has_phone = bool(contact.phone)
-        if has_name and has_phone:
-            contact_status = f"\n\nВАЖНО: Контакты клиента УЖЕ СОБРАНЫ:\n- Имя: {contact.name}\n- Телефон: {contact.phone}\nНЕ ПРОСИ эти данные снова! Просто помогай по вопросам."
-        elif has_name:
-            contact_status = f"\n\nВАЖНО: Имя клиента уже известно: {contact.name}. Нужно собрать только номер телефона."
-        elif has_phone:
-            contact_status = f"\n\nВАЖНО: Телефон клиента уже известен: {contact.phone}. Нужно собрать только имя."
-    
-    # Проверяем, является ли текущее сообщение коротким ответом ("нет", "никакого" и т.д.)
-    short_answers = ["нет", "не", "никакого", "не знаю", "не интересно", "не хочу", "не нужно"]
-    is_short_answer = request.message.lower().strip() in short_answers or len(request.message.strip()) < 10
-    
-    # Добавляем информацию о количестве ответов бота и коротких ответах клиента
-    if not contact or (not contact.name or not contact.phone):
-        if bot_responses_count >= 2 or (bot_responses_count >= 1 and is_short_answer):
-            contact_status += f"\n\nКРИТИЧЕСКИ ВАЖНО: Ты уже дал {bot_responses_count} ответ(ов) клиенту. Клиент дал короткий ответ или не задал новый вопрос. ОБЯЗАТЕЛЬНО начни собирать контакты СЕЙЧАС естественной формулировкой:\n- 'Отлично! Чтобы подобрать для вас оптимальную программу, как вас зовут?'\n- 'Хорошо! Для подбора программы обучения мне нужно ваше имя. Как вас зовут?'\n- 'Понятно! Чтобы наш менеджер связался с вами и рассказал все детали, как вас зовут?'\nНИКОГДА не пиши 'Затрудняюсь ответить' или 'Не могу ответить' - просто естественно переходи к сбору контактов!"
-        elif bot_responses_count >= 1:
-            contact_status += f"\n\nВАЖНО: Ты уже дал {bot_responses_count} ответ клиенту. После ответа на текущий вопрос обязательно начни собирать контакты естественной формулировкой, если клиент не задаст новый вопрос."
-    
-    # Получаем ответ от AI с учетом истории и статуса контактов
-    # ВАЖНО: это второй вызов для сохранения ответа в БД, но данные из ИИ уже использованы выше
-    response_text, _, _ = await ai_service.get_response(request.message, conversation_history, contact_status)
+
+    # ОПТИМИЗАЦИЯ: Используем response_text из первого вызова ИИ (строка 185)
+    # Убрали дублирование: не загружаем историю повторно, не вызываем ИИ второй раз
+    # Это экономит ~50% токенов и ускоряет обработку в 2 раза
     
     # Сохраняем сообщения в БД с session_id
     user_message = Message(
