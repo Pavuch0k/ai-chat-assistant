@@ -13,12 +13,15 @@ logger = logging.getLogger(__name__)
 def estimate_tokens(text: str) -> int:
     """
     Приблизительный подсчет токенов.
-    Для русского/английского текста: ~1 токен = 4 символа
+    ДЛЯ РУССКОГО ЯЗЫКА: ~1 токен = 2.5 символа (консервативная оценка)
+    Для английского: ~1 токен = 4 символа
+    Используем консервативную оценку для безопасности
     """
     if not text:
         return 0
-    # Более точная оценка: учитываем пробелы и знаки препинания
-    return len(text) // 4 + 1
+    # Консервативная оценка для русского текста: 1 токен = 2.5 символа
+    # Это даёт запас и предотвращает переполнение
+    return int(len(text) / 2.5) + 10  # +10 для overhead (JSON, форматирование)
 
 class AIService:
     def __init__(self):
@@ -390,8 +393,8 @@ class AIService:
             conversation_history=conversation_history if conversation_history else [],
             user_message=message,  # Передаем оригинальное сообщение без контекста из базы знаний
             knowledge_context=knowledge_context if knowledge_context else "",
-            max_context_tokens=15000,  # 15k токенов для контекста (строгий лимит)
-            max_response_tokens=500  # 500 токенов для ответа (короткие ответы)
+            max_context_tokens=12000,  # 12k токенов для контекста (ОЧЕНЬ строгий лимит)
+            max_response_tokens=1000  # 300 токенов для ответа (КОРОТКИЕ ответы)
         )
 
         messages = [
@@ -421,15 +424,15 @@ class AIService:
         total_input_tokens = system_tokens_calc + history_tokens_calc + current_message_tokens_calc
 
         # Ожидаемое количество токенов в ответе (макс)
-        max_output_tokens = 500  # Наш лимит
+        max_output_tokens = 300  # Наш лимит
 
         # Общее количество токенов (контекст + ответ)
         total_tokens_expected = total_input_tokens + max_output_tokens
 
         # Лимиты модели GPT-4o-mini
         model_context_limit = 128000  # 128k токенов
-        our_context_limit = 15000     # Наш лимит контекста
-        our_output_limit = 500        # Наш лимит ответа
+        our_context_limit = 12000     # Наш лимит контекста
+        our_output_limit = 300        # Наш лимит ответа
 
         # Логирование детального расчёта
         logger.info("=" * 70)
@@ -517,7 +520,7 @@ class AIService:
                                 "model": "gpt-4o-mini",
                                 "messages": messages,
                                 "temperature": 0.7,
-                                "max_tokens": 500,  # Лимит токенов для ответа (короткие ответы бота)
+                                "max_tokens": 300,  # Лимит токенов для ответа (КОРОТКИЕ ответы чат-бота)
                                 "response_format": {"type": "json_object"}
                             }
                         )
@@ -572,11 +575,11 @@ class AIService:
                                 conversation_history=conversation_history if conversation_history else [],
                                 user_message=user_message_content,
                                 knowledge_context=knowledge_context if knowledge_context else "",
-                                max_context_tokens=8000,  # ЭКСТРЕМАЛЬНО строгий лимит
-                                max_response_tokens=500  # Место для ответа
+                                max_context_tokens=5000,  # ЭКСТРЕМАЛЬНО строгий лимит
+                                max_response_tokens=300  # Место для ответа
                             )
-                            # Ограничиваем до последнего 1 сообщения максимум
-                            trimmed_history_aggressive = trimmed_history_aggressive[-1:] if len(trimmed_history_aggressive) > 1 else trimmed_history_aggressive
+                            # Убираем всю историю при переполнении
+                            trimmed_history_aggressive = []
                             
                             messages = [
                                 {"role": "system", "content": system_prompt}
