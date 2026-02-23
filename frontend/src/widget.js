@@ -160,7 +160,13 @@
                     if (expandedMsg && settings.expanded_message_text) {
                         expandedMsg.querySelector('span').textContent = settings.expanded_message_text;
                     }
-                    
+
+                    // Обновляем название чата в шапке
+                    const chatTitle = document.querySelector('.chat-header h3');
+                    if (chatTitle && settings.chat_title) {
+                        chatTitle.textContent = settings.chat_title;
+                    }
+
                     // Показываем виджет после загрузки настроек
                     if (widget) {
                         widget.style.visibility = 'visible';

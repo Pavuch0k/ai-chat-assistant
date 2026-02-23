@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.db_models import Document
+from app.models.db_models import Document, AdminUser
+from app.core.auth import get_current_user
 from app.services.knowledge_service import knowledge_service
 from typing import List, Optional
 from pydantic import BaseModel
@@ -26,7 +27,10 @@ class DocumentResponse(BaseModel):
         from_attributes = True
 
 @router.get("", response_model=List[DocumentResponse])
-async def get_documents(db: Session = Depends(get_db)):
+async def get_documents(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Получить список всех документов"""
     documents = db.query(Document).order_by(Document.created_at.desc()).all()
     return documents
@@ -34,7 +38,8 @@ async def get_documents(db: Session = Depends(get_db)):
 @router.post("/upload")
 async def upload_documents(
     files: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Загрузить документы в базу знаний"""
     uploaded_docs = []
@@ -125,7 +130,11 @@ async def upload_documents(
     return {"message": f"Загружено документов: {len(uploaded_docs)}", "documents": uploaded_docs}
 
 @router.delete("/{document_id}")
-async def delete_document(document_id: int, db: Session = Depends(get_db)):
+async def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Удалить документ"""
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:

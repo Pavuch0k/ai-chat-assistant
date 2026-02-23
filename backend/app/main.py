@@ -3,13 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from app.api import chat, admin, admin_ui, knowledge
-from app.db.database import engine, Base
+from app.api import chat, admin, admin_ui, knowledge, auth
+from app.db.database import engine, Base, get_db
 from sqlalchemy import inspect, text
 import os
 
 # Создаем таблицы при запуске
 Base.metadata.create_all(bind=engine)
+
+# Создаем админа по умолчанию
+from app.core.auth import create_default_admin
+db = next(get_db())
+try:
+    create_default_admin(db)
+finally:
+    db.close()
 
 # Функция для проверки и добавления недостающих колонок
 def ensure_widget_settings_columns():
@@ -33,7 +41,8 @@ def ensure_widget_settings_columns():
                 'input_background_color': "VARCHAR DEFAULT '#0a0e27'",
                 'border_color': "VARCHAR DEFAULT '#1e2742'",
                 'welcome_message': "TEXT DEFAULT 'Привет! Чем могу помочь?'",
-                'expanded_message_text': "VARCHAR DEFAULT 'Нужна помощь?'"
+                'expanded_message_text': "VARCHAR DEFAULT 'Нужна помощь?'",
+                'chat_title': "VARCHAR DEFAULT 'AI Ассистент'"
             }
             
             for col_name, col_def in new_columns.items():
@@ -161,7 +170,7 @@ class SwaggerDarkThemeMiddleware(BaseHTTPMiddleware):
 
 # Монтируем директорию для загрузки файлов
 app = FastAPI(
-    title="AI Chat Assistant API",
+    title="Devorb AI API",
     version="1.0.0",
     swagger_ui_parameters={
         "syntaxHighlight.theme": "agate",
@@ -184,13 +193,14 @@ app.add_middleware(
 app.add_middleware(SwaggerDarkThemeMiddleware)
 
 app.include_router(chat.router)
+app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(admin_ui.router)
 app.include_router(knowledge.router)
 
 @app.get("/")
 async def root():
-    return {"message": "AI Chat Assistant API"}
+    return {"message": "Devorb AI API"}
 
 @app.get("/health")
 async def health():

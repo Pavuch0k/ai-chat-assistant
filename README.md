@@ -1,11 +1,11 @@
-# AI Chat Assistant
+# Devorb AI
 
-AI чат-ассистент с RAG и интеграцией CRM.
+Интеллектуальный чат-ассистент с RAG и интеграцией CRM.
 
 ## Структура проекта
 
 ```
-ai-chat/
+devorb-ai/
 ├── backend/          # FastAPI приложение
 │   └── app/
 │       ├── api/      # API endpoints

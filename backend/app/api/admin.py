@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.db_models import Contact, Message, WidgetSettings
+from app.models.db_models import Contact, Message, WidgetSettings, AdminUser
+from app.core.auth import get_current_user
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
@@ -29,19 +30,30 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 @router.get("/contacts", response_model=List[ContactResponse])
-async def get_contacts(db: Session = Depends(get_db)):
+async def get_contacts(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Получить список всех контактов"""
     contacts = db.query(Contact).order_by(Contact.created_at.desc()).all()
     return contacts
 
 @router.get("/contacts/{contact_id}/messages", response_model=List[MessageResponse])
-async def get_contact_messages(contact_id: int, db: Session = Depends(get_db)):
+async def get_contact_messages(
+    contact_id: int,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Получить историю сообщений контакта"""
     messages = db.query(Message).filter(Message.contact_id == contact_id).order_by(Message.created_at).all()
     return messages
 
 @router.get("/messages", response_model=List[MessageResponse])
-async def get_all_messages(db: Session = Depends(get_db), limit: int = 100):
+async def get_all_messages(
+    db: Session = Depends(get_db),
+    limit: int = 100,
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Получить все сообщения"""
     messages = db.query(Message).order_by(Message.created_at.desc()).limit(limit).all()
     return messages
@@ -62,6 +74,7 @@ class WidgetSettingsRequest(BaseModel):
     border_color: str = "#1e2742"
     welcome_message: str = "Привет! Чем могу помочь?"
     expanded_message_text: str = "Нужна помощь?"
+    chat_title: str = "AI Ассистент"
 
 class WidgetSettingsResponse(BaseModel):
     primary_color: str
@@ -79,12 +92,16 @@ class WidgetSettingsResponse(BaseModel):
     border_color: str
     welcome_message: str
     expanded_message_text: str
-    
+    chat_title: str
+
     class Config:
         from_attributes = True
 
 @router.get("/widget/settings", response_model=WidgetSettingsResponse)
-async def get_widget_settings(db: Session = Depends(get_db)):
+async def get_widget_settings(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
     """Получить настройки виджета"""
     settings = db.query(WidgetSettings).first()
     if not settings:
@@ -98,7 +115,8 @@ async def get_widget_settings(db: Session = Depends(get_db)):
 @router.post("/widget/settings", response_model=WidgetSettingsResponse)
 async def update_widget_settings(
     settings_data: WidgetSettingsRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
 ):
     """Обновить настройки виджета"""
     settings = db.query(WidgetSettings).first()
@@ -121,6 +139,7 @@ async def update_widget_settings(
     settings.border_color = settings_data.border_color
     settings.welcome_message = settings_data.welcome_message
     settings.expanded_message_text = settings_data.expanded_message_text
+    settings.chat_title = settings_data.chat_title
     
     db.commit()
     db.refresh(settings)

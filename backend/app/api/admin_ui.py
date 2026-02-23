@@ -1,11 +1,191 @@
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Response, Cookie
+from fastapi.responses import HTMLResponse, RedirectResponse
+from app.models.db_models import AdminUser
+from app.core.auth import get_current_user, validate_session
+from typing import Optional
 
 router = APIRouter(tags=["admin-ui"])
 
+@router.get("/admin/login", response_class=HTMLResponse)
+async def admin_login_page():
+    """Страница входа в админку"""
+    return HTMLResponse(content="""
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Вход - Админ панель</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .login-container {
+                background: #151b2e;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                padding: 48px;
+                width: 100%;
+                max-width: 420px;
+                border: 1px solid #1e2742;
+            }
+            h1 {
+                color: #e0e6ed;
+                margin-bottom: 12px;
+                font-size: 32px;
+                font-weight: 700;
+                text-align: center;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .subtitle {
+                color: #8b95a7;
+                text-align: center;
+                margin-bottom: 32px;
+                font-size: 14px;
+            }
+            .form-group {
+                margin-bottom: 24px;
+            }
+            label {
+                display: block;
+                color: #8b95a7;
+                margin-bottom: 8px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            input {
+                width: 100%;
+                padding: 14px 16px;
+                background: #0a0e27;
+                border: 2px solid #1e2742;
+                border-radius: 12px;
+                color: #e0e6ed;
+                font-size: 15px;
+                transition: all 0.3s;
+            }
+            input:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+            button {
+                width: 100%;
+                padding: 14px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
+            button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            }
+            button:active {
+                transform: translateY(0);
+            }
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .error {
+                background: rgba(239, 68, 68, 0.1);
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                color: #ef4444;
+                padding: 12px 16px;
+                border-radius: 12px;
+                margin-bottom: 24px;
+                font-size: 14px;
+                display: none;
+            }
+            .error.show {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="login-container">
+            <h1>Админ панель</h1>
+            <p class="subtitle">Вход в систему управления</p>
+            <div id="error" class="error"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Имя пользователя</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" id="submitBtn">Войти</button>
+            </form>
+        </div>
+        <script>
+            const form = document.getElementById('loginForm');
+            const errorDiv = document.getElementById('error');
+            const submitBtn = document.getElementById('submitBtn');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errorDiv.classList.remove('show');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Вход...';
+
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    const response = await fetch(window.location.origin + '/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        window.location.href = '/admin';
+                    } else {
+                        errorDiv.textContent = data.detail || 'Ошибка входа';
+                        errorDiv.classList.add('show');
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Ошибка подключения к серверу';
+                    errorDiv.classList.add('show');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Войти';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """)
+
 @router.get("/admin", response_class=HTMLResponse)
-async def admin_panel():
+async def admin_panel(session_token: Optional[str] = Cookie(None, alias="admin_session")):
     """Админ панель для просмотра контактов"""
+    # Проверяем авторизацию
+    if not session_token or not validate_session(session_token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
     html_content = """
     <!DOCTYPE html>
     <html lang="ru">
@@ -289,11 +469,13 @@ async def admin_panel():
     </head>
     <body>
         <div class="container">
-            <h1>Админ панель - AI Chat Assistant</h1>
+            <h1>Админ панель - Devorb AI</h1>
             <div class="tabs">
                 <button class="tab active" onclick="showTab('contacts')">Контакты</button>
                 <button class="tab" onclick="showTab('knowledge')">База знаний</button>
                 <button class="tab" onclick="showTab('widget')">Настройки виджета</button>
+                <button class="tab" onclick="showTab('settings')">Настройки</button>
+                <button class="tab" onclick="logout()" style="margin-left: auto; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">Выход</button>
             </div>
             <div class="content">
                 <div id="contacts-tab">
@@ -304,6 +486,9 @@ async def admin_panel():
                 </div>
                 <div id="widget-tab" style="display: none;">
                     <div class="loading">Загрузка настроек виджета...</div>
+                </div>
+                <div id="settings-tab" style="display: none;">
+                    <div class="loading">Загрузка настроек...</div>
                 </div>
             </div>
         </div>
@@ -681,6 +866,10 @@ async def admin_panel():
                                 <div style="margin-bottom: 24px; padding: 16px; background: #0a0e27; border-radius: 12px; border: 1px solid #1e2742;">
                                     <h3 style="color: #e0e6ed; margin-bottom: 16px; font-size: 16px;">Тексты</h3>
                                     <div style="margin-bottom: 16px;">
+                                        <label style="display: block; color: #8b95a7; margin-bottom: 8px; font-size: 14px;">Название чата (в шапке)</label>
+                                        <input type="text" id="chatTitle" value="${(settings.chat_title || 'AI Ассистент').replace(/"/g, '&quot;')}" style="width: 100%; padding: 12px; background: #151b2e; border: 2px solid #1e2742; border-radius: 8px; color: #e0e6ed; font-size: 14px;" oninput="updatePreview()" onchange="updatePreview()">
+                                    </div>
+                                    <div style="margin-bottom: 16px;">
                                         <label style="display: block; color: #8b95a7; margin-bottom: 8px; font-size: 14px;">Текст расширенного сообщения</label>
                                         <input type="text" id="expandedMessageText" value="${(settings.expanded_message_text || 'Нужна помощь?').replace(/"/g, '&quot;')}" style="width: 100%; padding: 12px; background: #151b2e; border: 2px solid #1e2742; border-radius: 8px; color: #e0e6ed; font-size: 14px;" oninput="updatePreview()" onchange="updatePreview()">
                                     </div>
@@ -712,7 +901,7 @@ async def admin_panel():
                                         <!-- Предпросмотр окна чата -->
                                         <div id="preview-chat-window" style="position: absolute; bottom: 100px; right: 20px; width: 380px; height: 480px; background: ${settings.background_color || '#151b2e'}; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; overflow: hidden; border: 1px solid ${settings.border_color || '#1e2742'};">
                                             <div id="preview-header" style="background: linear-gradient(135deg, ${settings.header_color || '#667eea'} 0%, ${settings.secondary_color || '#764ba2'} 100%); color: ${settings.header_text_color || '#ffffff'}; padding: 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                                                <h3 style="font-size: 18px; font-weight: 700; margin: 0;">AI Ассистент</h3>
+                                                <h3 id="preview-chat-title" style="font-size: 18px; font-weight: 700; margin: 0;">${settings.chat_title || 'AI Ассистент'}</h3>
                                                 <button style="background: rgba(255, 255, 255, 0.1); border: none; color: ${settings.header_text_color || '#ffffff'}; font-size: 24px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
                                             </div>
                                             <div id="preview-messages" style="flex: 1; overflow-y: auto; padding: 20px; background: ${settings.messages_area_color || '#0a0e27'}; display: flex; flex-direction: column; gap: 12px;">
@@ -914,6 +1103,7 @@ async def admin_panel():
                 const userMessageColor = document.getElementById('userMessageColor')?.value || '#667eea';
                 const botMessageColor = document.getElementById('botMessageColor')?.value || '#1e2742';
                 const textColor = document.getElementById('textColor')?.value || '#e0e6ed';
+                const chatTitle = document.getElementById('chatTitle')?.value || 'AI Ассистент';
                 const expandedMessageText = document.getElementById('expandedMessageText')?.value || 'Нужна помощь?';
                 const welcomeMessage = document.getElementById('welcomeMessage')?.value || 'Привет! Чем могу помочь?';
                 
@@ -989,6 +1179,7 @@ async def admin_panel():
                 const previewHeaderTitle = previewHeader ? previewHeader.querySelector('h3') : null;
                 if (previewHeaderTitle) {
                     previewHeaderTitle.style.color = headerTextColor;
+                    previewHeaderTitle.textContent = chatTitle;
                 }
             }
             
@@ -1005,6 +1196,7 @@ async def admin_panel():
                 const userMessageColor = document.getElementById('userMessageColor')?.value || '#667eea';
                 const botMessageColor = document.getElementById('botMessageColor')?.value || '#1e2742';
                 const textColor = document.getElementById('textColor')?.value || '#e0e6ed';
+                const chatTitle = document.getElementById('chatTitle')?.value || 'AI Ассистент';
                 const expandedMessageText = document.getElementById('expandedMessageText')?.value || 'Нужна помощь?';
                 const welcomeMessage = document.getElementById('welcomeMessage')?.value || 'Привет! Чем могу помочь?';
                 
@@ -1028,6 +1220,7 @@ async def admin_panel():
                             user_message_color: userMessageColor,
                             bot_message_color: botMessageColor,
                             text_color: textColor,
+                            chat_title: chatTitle,
                             welcome_message: welcomeMessage,
                             expanded_message_text: expandedMessageText
                         })
@@ -1044,12 +1237,122 @@ async def admin_panel():
                 }
             }
             
+            async function logout() {
+                try {
+                    await fetch(`${API_URL}/api/auth/logout`, {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+                    window.location.href = '/admin/login';
+                } catch (error) {
+                    console.error('Ошибка выхода:', error);
+                    window.location.href = '/admin/login';
+                }
+            }
+
+            function loadSettings() {
+                const html = `
+                    <div style="max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #e0e6ed; margin-bottom: 24px; font-size: 24px;">Настройки аккаунта</h2>
+
+                        <div style="margin-bottom: 32px; padding: 24px; background: #0a0e27; border-radius: 12px; border: 1px solid #1e2742;">
+                            <h3 style="color: #e0e6ed; margin-bottom: 20px; font-size: 18px;">Смена пароля</h3>
+                            <div id="password-error" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px;"></div>
+                            <div id="password-success" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px;"></div>
+
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; color: #8b95a7; margin-bottom: 8px; font-size: 14px;">Текущий пароль</label>
+                                <input type="password" id="currentPassword" style="width: 100%; padding: 12px; background: #151b2e; border: 2px solid #1e2742; border-radius: 8px; color: #e0e6ed; font-size: 14px;">
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; color: #8b95a7; margin-bottom: 8px; font-size: 14px;">Новый пароль (минимум 6 символов)</label>
+                                <input type="password" id="newPassword" style="width: 100%; padding: 12px; background: #151b2e; border: 2px solid #1e2742; border-radius: 8px; color: #e0e6ed; font-size: 14px;">
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; color: #8b95a7; margin-bottom: 8px; font-size: 14px;">Подтвердите новый пароль</label>
+                                <input type="password" id="confirmPassword" style="width: 100%; padding: 12px; background: #151b2e; border: 2px solid #1e2742; border-radius: 8px; color: #e0e6ed; font-size: 14px;">
+                            </div>
+                            <button class="upload-btn" onclick="changePassword()">Изменить пароль</button>
+                        </div>
+
+                        <div style="padding: 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+                            <p style="color: #ef4444; font-size: 14px; margin-bottom: 8px;"><strong>⚠️ Важно:</strong></p>
+                            <p style="color: #8b95a7; font-size: 13px; line-height: 1.6;">
+                                После смены пароля вы останетесь авторизованы в текущей сессии.
+                                Рекомендуется записать новый пароль в надежное место.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('settings-tab').innerHTML = html;
+            }
+
+            async function changePassword() {
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                const errorDiv = document.getElementById('password-error');
+                const successDiv = document.getElementById('password-success');
+
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'none';
+
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    errorDiv.textContent = 'Заполните все поля';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                if (newPassword.length < 6) {
+                    errorDiv.textContent = 'Новый пароль должен содержать минимум 6 символов';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    errorDiv.textContent = 'Пароли не совпадают';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_URL}/api/auth/change-password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_password: newPassword
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        successDiv.textContent = 'Пароль успешно изменен!';
+                        successDiv.style.display = 'block';
+                        document.getElementById('currentPassword').value = '';
+                        document.getElementById('newPassword').value = '';
+                        document.getElementById('confirmPassword').value = '';
+                    } else {
+                        errorDiv.textContent = data.detail || 'Ошибка смены пароля';
+                        errorDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Ошибка подключения к серверу';
+                    errorDiv.style.display = 'block';
+                }
+            }
+
             function showTab(tab) {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.getElementById('contacts-tab').style.display = 'none';
                 document.getElementById('knowledge-tab').style.display = 'none';
                 document.getElementById('widget-tab').style.display = 'none';
-                
+                document.getElementById('settings-tab').style.display = 'none';
+
                 if (tab === 'contacts') {
                     document.querySelectorAll('.tab')[0].classList.add('active');
                     document.getElementById('contacts-tab').style.display = 'block';
@@ -1062,6 +1365,10 @@ async def admin_panel():
                     document.querySelectorAll('.tab')[2].classList.add('active');
                     document.getElementById('widget-tab').style.display = 'block';
                     loadWidgetSettings();
+                } else if (tab === 'settings') {
+                    document.querySelectorAll('.tab')[3].classList.add('active');
+                    document.getElementById('settings-tab').style.display = 'block';
+                    loadSettings();
                 }
             }
             

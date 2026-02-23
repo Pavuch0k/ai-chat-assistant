@@ -1,18 +1,18 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.db.database import Base
 
 class Contact(Base):
     __tablename__ = "contacts"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
 class Message(Base):
     __tablename__ = "messages"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     contact_id = Column(Integer, nullable=True)
     session_id = Column(String, nullable=True, index=True)  # Для связывания сообщений одного пользователя
@@ -23,7 +23,7 @@ class Message(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
@@ -33,7 +33,7 @@ class Document(Base):
 
 class WidgetSettings(Base):
     __tablename__ = "widget_settings"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     primary_color = Column(String, default="#667eea")
     secondary_color = Column(String, default="#764ba2")
@@ -50,4 +50,15 @@ class WidgetSettings(Base):
     border_color = Column(String, default="#1e2742")
     welcome_message = Column(Text, default="Привет! Чем могу помочь?")
     expanded_message_text = Column(String, default="Нужна помощь?")
+    chat_title = Column(String, default="AI Ассистент")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

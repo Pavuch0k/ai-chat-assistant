@@ -306,7 +306,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
                 comments = f"Краткое резюме диалога:\n{conversation_summary}\n\nSession ID: {session_id}"
             else:
                 # Если резюме нет (диалог только начался), просто указываем Session ID
-                comments = f"Контакт создан из AI Chat Widget. Session ID: {session_id}"
+                comments = f"Контакт создан из Devorb AI Widget. Session ID: {session_id}"
             
             result = await bitrix24_service.create_lead(
                 name=contact.name,
