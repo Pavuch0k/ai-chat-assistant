@@ -1,12 +1,38 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+    # API секреты
+    openai_api_key = Column(String, nullable=True)
+    bitrix_webhook_url = Column(String, nullable=True)
+    custom_webhook_url = Column(String, nullable=True)
+
+    # CORS настройки (JSON строка со списком доменов)
+    allowed_origins = Column(Text, default="*")
+
+    # Docker контейнер (для будущего использования)
+    container_id = Column(String, nullable=True)
+    container_port = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 class Contact(Base):
     __tablename__ = "contacts"
 
     id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)  # nullable для обратной совместимости
     name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -14,6 +40,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     contact_id = Column(Integer, nullable=True)
     session_id = Column(String, nullable=True, index=True)  # Для связывания сообщений одного пользователя
     message = Column(Text)
@@ -25,6 +52,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     file_type = Column(String, nullable=True)
@@ -35,6 +63,7 @@ class WidgetSettings(Base):
     __tablename__ = "widget_settings"
 
     id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True, unique=True)  # Один набор настроек на проект
     primary_color = Column(String, default="#667eea")
     secondary_color = Column(String, default="#764ba2")
     button_color = Column(String, default="#667eea")

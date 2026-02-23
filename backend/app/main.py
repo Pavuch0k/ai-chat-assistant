@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from app.api import chat, admin, admin_ui, knowledge, auth
+from app.api import chat, admin, admin_ui, knowledge, auth, projects
 from app.db.database import engine, Base, get_db
 from sqlalchemy import inspect, text
 import os
@@ -11,26 +11,44 @@ import os
 # Создаем таблицы при запуске
 Base.metadata.create_all(bind=engine)
 
-# Создаем админа по умолчанию
+# Создаем админа по умолчанию и дефолтный проект
 from app.core.auth import create_default_admin
+from app.models.db_models import Project, WidgetSettings
 db = next(get_db())
 try:
     create_default_admin(db)
+
+    # Создаем дефолтный проект если его нет
+    default_project = db.query(Project).filter(Project.id == 1).first()
+    if not default_project:
+        default_project = Project(
+            id=1,
+            name="Основной проект",
+            description="Главный чат-ассистент для сайта",
+            is_active=True
+        )
+        db.add(default_project)
+        db.commit()
+        print("✓ Создан дефолтный проект")
+
+        # Создаем настройки виджета для дефолтного проекта
+        default_settings = WidgetSettings(project_id=1)
+        db.add(default_settings)
+        db.commit()
+        print("✓ Созданы настройки виджета для дефолтного проекта")
 finally:
     db.close()
 
 # Функция для проверки и добавления недостающих колонок
-def ensure_widget_settings_columns():
-    """Проверяет и добавляет недостающие колонки в таблицу widget_settings"""
+def ensure_database_schema():
+    """Проверяет и добавляет недостающие колонки во все таблицы"""
     inspector = inspect(engine)
-    
-    # Проверяем, существует ли таблица widget_settings
+
+    # Миграция для widget_settings
     if 'widget_settings' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('widget_settings')]
-        
-        # Добавляем недостающие колонки
         with engine.connect() as conn:
-            new_columns = {
+            widget_columns = {
                 'background_color': "VARCHAR DEFAULT '#151b2e'",
                 'header_color': "VARCHAR DEFAULT '#667eea'",
                 'header_text_color': "VARCHAR DEFAULT '#ffffff'",
@@ -42,20 +60,51 @@ def ensure_widget_settings_columns():
                 'border_color': "VARCHAR DEFAULT '#1e2742'",
                 'welcome_message': "TEXT DEFAULT 'Привет! Чем могу помочь?'",
                 'expanded_message_text': "VARCHAR DEFAULT 'Нужна помощь?'",
-                'chat_title': "VARCHAR DEFAULT 'AI Ассистент'"
+                'chat_title': "VARCHAR DEFAULT 'AI Ассистент'",
+                'project_id': "INTEGER REFERENCES projects(id)"
             }
-            
-            for col_name, col_def in new_columns.items():
+            for col_name, col_def in widget_columns.items():
                 if col_name not in columns:
                     conn.execute(text(f"ALTER TABLE widget_settings ADD COLUMN {col_name} {col_def}"))
                     conn.commit()
                     print(f"✓ Добавлена колонка {col_name} в widget_settings")
 
+    # Миграция для contacts
+    if 'contacts' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('contacts')]
+        with engine.connect() as conn:
+            if 'project_id' not in columns:
+                conn.execute(text("ALTER TABLE contacts ADD COLUMN project_id INTEGER REFERENCES projects(id)"))
+                conn.commit()
+                print("✓ Добавлена колонка project_id в contacts")
+            if 'email' not in columns:
+                conn.execute(text("ALTER TABLE contacts ADD COLUMN email VARCHAR"))
+                conn.commit()
+                print("✓ Добавлена колонка email в contacts")
+
+    # Миграция для messages
+    if 'messages' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('messages')]
+        if 'project_id' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE messages ADD COLUMN project_id INTEGER REFERENCES projects(id)"))
+                conn.commit()
+                print("✓ Добавлена колонка project_id в messages")
+
+    # Миграция для documents
+    if 'documents' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('documents')]
+        if 'project_id' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE documents ADD COLUMN project_id INTEGER REFERENCES projects(id)"))
+                conn.commit()
+                print("✓ Добавлена колонка project_id в documents")
+
 # Вызываем функцию при старте
 try:
-    ensure_widget_settings_columns()
+    ensure_database_schema()
 except Exception as e:
-    print(f"Предупреждение при проверке колонок widget_settings: {e}")
+    print(f"Предупреждение при проверке схемы БД: {e}")
 
 # Определяем путь для загрузок (локально или в Docker)
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads"))
@@ -169,6 +218,9 @@ class SwaggerDarkThemeMiddleware(BaseHTTPMiddleware):
         return response
 
 # Монтируем директорию для загрузки файлов
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
+
 app = FastAPI(
     title="Devorb AI API",
     version="1.0.0",
@@ -178,6 +230,7 @@ app = FastAPI(
     }
 )
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # ВАЖНО: CORS middleware должен быть ПЕРВЫМ, чтобы обрабатывать preflight OPTIONS запросы
 app.add_middleware(
@@ -197,6 +250,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(admin_ui.router)
 app.include_router(knowledge.router)
+app.include_router(projects.router)
 
 @app.get("/")
 async def root():

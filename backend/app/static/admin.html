@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devorb AI - Панель управления</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #241b2f;
+            --primary-light: #2f2540;
+            --primary-dark: #1a1423;
+            --accent: #667eea;
+            --accent-hover: #5568d3;
+            --bg: #0f0c15;
+            --surface: #1a1625;
+            --border: #2a2436;
+            --text: #e0e6ed;
+            --text-muted: #8b95a7;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent) 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: var(--primary-light);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-logout {
+            width: 100%;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 32px;
+            max-width: 100%;
+        }
+
+        /* Page header */
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .page-description {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        /* Projects Grid */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .project-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
+        }
+
+        .project-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .project-name {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .project-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .project-status.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .project-description {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .project-stats {
+            display: flex;
+            gap: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .project-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-stat-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .project-stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Add project button */
+        .add-project-card {
+            background: var(--surface);
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+
+        .add-project-card:hover {
+            border-color: var(--accent);
+            background: var(--primary-light);
+        }
+
+        .add-project-icon {
+            font-size: 48px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .add-project-text {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        /* Button */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Content container */
+        .content-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .breadcrumb-item {
+            cursor: pointer;
+        }
+
+        .breadcrumb-item:hover {
+            color: var(--text);
+        }
+
+        .breadcrumb-separator {
+            color: var(--border);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        /* Hide */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            color: var(--text);
+        }
+
+        .data-table tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        /* Forms */
+        .form-section {
+            margin-bottom: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="password"],
+        .form-group input[type="email"],
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input[type="color"] {
+            width: 100px;
+            height: 40px;
+            padding: 4px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .form-group input[type="file"] {
+            color: var(--text);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        /* Messages History */
+        .messages-history {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .message-user {
+            color: var(--text);
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+        }
+
+        .message-bot {
+            color: var(--text);
+            margin-bottom: 12px;
+            padding: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 8px;
+        }
+
+        .message-time {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        /* Button variants */
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Upload section */
+        .upload-section {
+            padding: 24px;
+            background: var(--bg);
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+        }
+
+        /* Error message */
+        .error-message {
+            padding: 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+            border-radius: 8px;
+        }
+
+        /* Widget Settings */
+        .widget-settings-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .widget-form-section {
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+
+        .widget-preview-section {
+            position: relative;
+        }
+
+        .theme-toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 12px;
+        }
+
+        .theme-label {
+            color: var(--text-muted);
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .theme-label:last-child {
+            text-align: right;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--primary-light);
+            transition: 0.3s;
+            border-radius: 28px;
+            border: 2px solid var(--border);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 2px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .preset-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .preset-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .color-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .color-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .color-section h4 {
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        /* Widget Preview */
+        .preview-container {
+            background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+            border-radius: 12px;
+            min-height: 620px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .widget-preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .preview-expanded-message {
+            position: absolute;
+            bottom: 80px;
+            right: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px 12px 0 12px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 200px;
+            z-index: 2;
+        }
+
+        .preview-button {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            cursor: pointer;
+            z-index: 3;
+        }
+
+        .preview-chat-window {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            bottom: 12px;
+            width: calc(100% - 24px);
+            max-width: 360px;
+            background: #151b2e;
+            border: 1px solid #1e2742;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 4;
+        }
+
+        .preview-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .preview-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .preview-header button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-messages {
+            flex: 1;
+            padding: 14px;
+            background: #0a0e27;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preview-bot-message {
+            background: #1e2742;
+            color: #e0e6ed;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            max-width: 85%;
+            border: 1px solid #1e2742;
+            line-height: 1.4;
+        }
+
+        .preview-user-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            max-width: 85%;
+            display: inline-block;
+            line-height: 1.4;
+        }
+
+        .preview-input-container {
+            padding: 12px;
+            background: #151b2e;
+            border-top: 1px solid #1e2742;
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .preview-input-container input {
+            flex: 1;
+            padding: 10px 12px;
+            background: #0a0e27;
+            border: 1px solid #1e2742;
+            border-radius: 8px;
+            color: #e0e6ed;
+            font-size: 13px;
+        }
+
+        .preview-input-container button {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .data-table {
+                font-size: 12px;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">Devorb AI</div>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Navigation будет динамически добавлен -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn-logout" onclick="logout()">Выход</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div id="app">
+                <!-- Контент будет динамически загружаться -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        // Router
+        class Router {
+            constructor() {
+                this.routes = {};
+                this.currentRoute = null;
+                this.currentProject = null;
+
+                window.addEventListener('popstate', () => this.handleRoute());
+            }
+
+            addRoute(path, handler) {
+                this.routes[path] = handler;
+            }
+
+            navigate(path, projectId = null) {
+                if (projectId) {
+                    this.currentProject = projectId;
+                }
+
+                window.history.pushState({}, '', `/admin#${path}`);
+                this.handleRoute();
+            }
+
+            handleRoute() {
+                const hash = window.location.hash.slice(1) || '/';
+                const [path, ...params] = hash.split('/').filter(Boolean);
+
+                const route = this.routes[`/${path}`] || this.routes['/'];
+
+                if (route) {
+                    this.currentRoute = path;
+                    route(params);
+                    this.updateNav();
+                }
+            }
+
+            updateNav() {
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    const route = item.dataset.route;
+                    if (route === this.currentRoute) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        const router = new Router();
+
+        // Кэш для проектов
+        let projectsCache = [];
+
+        // SVG Icons
+        const icons = {
+            projects: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+            contacts: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+            knowledge: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+            widget: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+            secrets: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+            settings: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M3.93 3.93l4.24 4.24m5.66 5.66l4.24 4.24M1 12h6m6 0h6M3.93 20.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg>',
+            back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+            plus: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+            close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+            send: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+            chat: '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>',
+            delete: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+            upload: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+            history: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+            save: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'
+        };
+
+        // Routes
+        router.addRoute('/', () => {
+            document.getElementById('sidebarNav').innerHTML = `
+                <a class="nav-item active" data-route="" onclick="router.navigate('/')">
+                    ${icons.projects} <span style="margin-left: 12px;">Проекты</span>
+                </a>
+            `;
+
+            renderProjectsList();
+        });
+
+        router.addRoute('/project', (params) => {
+            const projectId = params[0];
+            const page = params[1] || 'contacts';
+
+            router.currentProject = projectId;
+            const project = projectsCache.find(p => p.id == projectId);
+
+            document.getElementById('sidebarNav').innerHTML = `
+                <a class="nav-item" data-route="" onclick="router.navigate('/')">
+                    ${icons.back} <span style="margin-left: 12px;">Все проекты</span>
+                </a>
+                <div style="margin: 16px 0; padding: 0 16px; color: var(--text-muted); font-size: 12px; text-transform: uppercase;">
+                    ${project ? project.name : 'Проект'}
+                </div>
+                <a class="nav-item" data-route="contacts" onclick="router.navigate('/project/${projectId}/contacts')">
+                    ${icons.contacts} <span style="margin-left: 12px;">Контакты</span>
+                </a>
+                <a class="nav-item" data-route="knowledge" onclick="router.navigate('/project/${projectId}/knowledge')">
+                    ${icons.knowledge} <span style="margin-left: 12px;">База знаний</span>
+                </a>
+                <a class="nav-item" data-route="widget" onclick="router.navigate('/project/${projectId}/widget')">
+                    ${icons.widget} <span style="margin-left: 12px;">Виджет</span>
+                </a>
+                <a class="nav-item" data-route="secrets" onclick="router.navigate('/project/${projectId}/secrets')">
+                    ${icons.secrets} <span style="margin-left: 12px;">Секреты и CORS</span>
+                </a>
+                <a class="nav-item" data-route="settings" onclick="router.navigate('/project/${projectId}/settings')">
+                    ${icons.settings} <span style="margin-left: 12px;">Настройки</span>
+                </a>
+            `;
+
+            renderProjectPage(projectId, page);
+        });
+
+        // Render functions
+        async function renderProjectsList() {
+            const app = document.getElementById('app');
+
+            app.innerHTML = `
+                <div class="page-header">
+                    <h1 class="page-title">Проекты</h1>
+                    <p class="page-description">Управление вашими AI-ассистентами</p>
+                </div>
+                <div class="content-card">
+                    <div class="loading">Загрузка проектов...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects`, { credentials: 'same-origin' });
+                const projects = await response.json();
+                projectsCache = projects;
+
+                app.innerHTML = `
+                    <div class="page-header">
+                        <h1 class="page-title">Проекты</h1>
+                        <p class="page-description">Управление вашими AI-ассистентами</p>
+                    </div>
+
+                    <div class="projects-grid">
+                        ${projects.map(project => `
+                            <div class="project-card" onclick="router.navigate('/project/${project.id}/contacts')">
+                                <div class="project-card-header">
+                                    <h3 class="project-name">${project.name}</h3>
+                                    <span class="project-status ${project.is_active ? 'active' : ''}">${project.is_active ? 'Активен' : 'Неактивен'}</span>
+                                </div>
+                                <p class="project-description">${project.description || 'Описание отсутствует'}</p>
+                                <div class="project-stats">
+                                    <div class="project-stat">
+                                        <span class="project-stat-value">${project.contacts_count || 0}</span>
+                                        <span class="project-stat-label">Контактов</span>
+                                    </div>
+                                    <div class="project-stat">
+                                        <span class="project-stat-value">${project.messages_count || 0}</span>
+                                        <span class="project-stat-label">Сообщений</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+
+                        <div class="add-project-card" onclick="showCreateProjectDialog()">
+                            <div class="add-project-icon">${icons.plus}</div>
+                            <div class="add-project-text">Создать новый проект</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                app.innerHTML = `
+                    <div class="page-header">
+                        <h1 class="page-title">Проекты</h1>
+                        <p class="page-description">Управление вашими AI-ассистентами</p>
+                    </div>
+                    <div class="content-card">
+                        <div class="error-message">Ошибка загрузки проектов: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderProjectPage(projectId, page) {
+            const app = document.getElementById('app');
+            const project = projectsCache.find(p => p.id == projectId);
+
+            app.innerHTML = `
+                <div class="breadcrumbs">
+                    <span class="breadcrumb-item" onclick="router.navigate('/')">Проекты</span>
+                    <span class="breadcrumb-separator">›</span>
+                    <span>${project.name}</span>
+                </div>
+
+                <div class="page-header">
+                    <h1 class="page-title">${getPageTitle(page)}</h1>
+                    <p class="page-description">${getPageDescription(page)}</p>
+                </div>
+
+                <div id="pageContent">
+                    <div class="loading">Загрузка...</div>
+                </div>
+            `;
+
+            // Загружаем контент для конкретной страницы
+            switch(page) {
+                case 'contacts':
+                    renderContactsPage(projectId);
+                    break;
+                case 'knowledge':
+                    renderKnowledgePage(projectId);
+                    break;
+                case 'widget':
+                    renderWidgetPage(projectId);
+                    break;
+                case 'secrets':
+                    renderSecretsPage(projectId);
+                    break;
+                case 'settings':
+                    renderSettingsPage(projectId);
+                    break;
+            }
+        }
+
+        function getPageTitle(page) {
+            const titles = {
+                'contacts': 'Контакты',
+                'knowledge': 'База знаний',
+                'widget': 'Настройки виджета',
+                'secrets': 'Секреты и CORS',
+                'settings': 'Настройки проекта'
+            };
+            return titles[page] || 'Страница';
+        }
+
+        function getPageDescription(page) {
+            const descriptions = {
+                'contacts': 'Управление контактами и история переписок',
+                'knowledge': 'Загрузка и управление документами базы знаний',
+                'widget': 'Настройка внешнего вида и поведения виджета',
+                'secrets': 'API ключи, webhooks и настройка CORS',
+                'settings': 'Общие настройки проекта'
+            };
+            return descriptions[page] || '';
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${API_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                window.location.href = '/admin/login';
+            } catch (error) {
+                console.error('Ошибка выхода:', error);
+                window.location.href = '/admin/login';
+            }
+        }
+
+        function createProject() {
+            alert('Создание нового проекта - функция в разработке');
+        }
+
+        // ==================== CONTACTS PAGE ====================
+        async function renderContactsPage(projectId) {
+            const pageContent = document.getElementById('pageContent');
+
+            pageContent.innerHTML = `
+                <div class="content-card">
+                    <div class="loading">Загрузка контактов...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/contacts`, {
+                    credentials: 'same-origin'
+                });
+                const contacts = await response.json();
+
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Имя</th>
+                                    <th>Email</th>
+                                    <th>Телефон</th>
+                                    <th>Создан</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${contacts.map(contact => `
+                                    <tr>
+                                        <td>${contact.id}</td>
+                                        <td>${contact.name || '-'}</td>
+                                        <td>${contact.email || '-'}</td>
+                                        <td>${contact.phone || '-'}</td>
+                                        <td>${new Date(contact.created_at).toLocaleString('ru-RU')}</td>
+                                        <td>
+                                            <button class="btn btn-small" onclick="showContactHistory(${contact.id})" style="display:flex;align-items:center;gap:6px;">
+                                                ${icons.history} История
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <div class="error-message">Ошибка загрузки контактов: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function showContactHistory(contactId) {
+            const pageContent = document.getElementById('pageContent');
+
+            pageContent.innerHTML = `
+                <div class="content-card">
+                    <button class="btn" onclick="renderContactsPage(router.currentProject)" style="margin-bottom: 16px;">
+                        ${icons.back} Назад к списку
+                    </button>
+                    <div class="loading">Загрузка истории...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/contacts/${contactId}/messages`, {
+                    credentials: 'same-origin'
+                });
+                const messages = await response.json();
+
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <button class="btn" onclick="renderContactsPage(router.currentProject)" style="margin-bottom: 24px;">
+                            ${icons.back} Назад к списку
+                        </button>
+                        <h3 style="margin-bottom: 16px; color: var(--text);">История переписки (${messages.length} сообщений)</h3>
+                        <div class="messages-history">
+                            ${messages.map(msg => `
+                                <div class="message-block">
+                                    <div class="message-user">
+                                        <strong>Пользователь:</strong> ${msg.message || ''}
+                                    </div>
+                                    ${msg.response ? `<div class="message-bot">
+                                        <strong>Бот:</strong> ${msg.response}
+                                    </div>` : ''}
+                                    <div class="message-time">
+                                        ${new Date(msg.created_at).toLocaleString('ru-RU')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <button class="btn" onclick="renderContactsPage(router.currentProject)">
+                            ${icons.back} Назад к списку
+                        </button>
+                        <div class="error-message">Ошибка загрузки истории: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // ==================== KNOWLEDGE PAGE ====================
+        async function renderKnowledgePage(projectId) {
+            const pageContent = document.getElementById('pageContent');
+
+            pageContent.innerHTML = `
+                <div class="content-card">
+                    <div class="upload-section">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">Загрузка документов</h3>
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">
+                            Поддерживаются форматы: PDF, DOCX, TXT
+                        </p>
+                        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="margin-bottom: 16px;">
+                        <button class="btn btn-primary" onclick="uploadDocument()" style="display:flex;align-items:center;gap:8px;">${icons.upload} Загрузить</button>
+                    </div>
+                </div>
+
+                <div class="content-card" style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 16px; color: var(--text);">Загруженные документы</h3>
+                    <div id="documentsList">
+                        <div class="loading">Загрузка списка документов...</div>
+                    </div>
+                </div>
+            `;
+
+            loadDocumentsList();
+        }
+
+        async function loadDocumentsList() {
+            const documentsList = document.getElementById('documentsList');
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/documents`, {
+                    credentials: 'same-origin'
+                });
+                const documents = await response.json();
+
+                if (documents.length === 0) {
+                    documentsList.innerHTML = `
+                        <p style="color: var(--text-muted);">Документы пока не загружены</p>
+                    `;
+                    return;
+                }
+
+                documentsList.innerHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Размер</th>
+                                <th>Загружен</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${documents.map(doc => `
+                                <tr>
+                                    <td>${doc.id}</td>
+                                    <td>${doc.filename}</td>
+                                    <td>${formatFileSize(doc.file_size)}</td>
+                                    <td>${new Date(doc.created_at).toLocaleString('ru-RU')}</td>
+                                    <td>
+                                        <button class="btn btn-small btn-danger" onclick="deleteDocument(${doc.id})" style="display:flex;align-items:center;gap:6px;">
+                                            ${icons.delete} Удалить
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                documentsList.innerHTML = `
+                    <div class="error-message">Ошибка загрузки списка: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function uploadDocument() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Выберите файл для загрузки');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/upload-document`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert('Документ успешно загружен!');
+                    fileInput.value = '';
+                    loadDocumentsList();
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка загрузки: ' + (error.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка загрузки: ' + error.message);
+            }
+        }
+
+        async function deleteDocument(docId) {
+            if (!confirm('Удалить документ?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/documents/${docId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    alert('Документ удален');
+                    loadDocumentsList();
+                } else {
+                    alert('Ошибка удаления');
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ==================== WIDGET PAGE ====================
+        async function renderWidgetPage(projectId) {
+            const pageContent = document.getElementById('pageContent');
+            pageContent.innerHTML = '<div class="content-card"><div class="loading">Загрузка настроек...</div></div>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/widget/settings`, { credentials: 'same-origin' });
+                const settings = await response.json();
+                const isLightTheme = (settings.background_color || '#151b2e') === '#ffffff';
+
+                pageContent.innerHTML = `
+                    <div class="widget-settings-container">
+                        <div class="widget-form-section">
+                            <div class="content-card" style="margin-bottom: 24px;">
+                                <h3 style="margin-bottom: 16px;">Базовая тема</h3>
+                                <div class="theme-toggle-wrapper">
+                                    <span class="theme-label">Темная тема</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="themeToggle" ${isLightTheme ? 'checked' : ''} onchange="toggleTheme()">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <span class="theme-label">Светлая тема</span>
+                                </div>
+                            </div>
+
+                            <div class="content-card" style="margin-bottom: 24px;">
+                                <h3 style="margin-bottom: 16px;">Готовые пресеты</h3>
+                                <div class="presets-grid">
+                                    ${generatePresetButtons()}
+                                </div>
+                            </div>
+
+                            <div class="content-card" style="margin-bottom: 24px;">
+                                <h3 style="margin-bottom: 16px;">Кастомные настройки</h3>
+
+                                <div class="color-section">
+                                    <h4>Название чата</h4>
+                                    <div class="form-group">
+                                        <label>Текст в шапке виджета</label>
+                                        <input type="text" id="chatTitle" value="${settings.chat_title || 'AI Ассистент'}">
+                                    </div>
+                                </div>
+
+                                <div class="color-section">
+                                    <h4>Кнопка виджета</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Цвет кнопки</label>
+                                            <input type="color" id="buttonColor" value="${settings.button_color || settings.primary_color || '#667eea'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Вторичный цвет</label>
+                                            <input type="color" id="secondaryColor" value="${settings.secondary_color || '#764ba2'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Цвет расширенного сообщения</label>
+                                            <input type="color" id="messageColor" value="${settings.message_color || '#667eea'}" onchange="updatePreview()">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="color-section">
+                                    <h4>Окно чата</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Фон окна</label>
+                                            <input type="color" id="backgroundColor" value="${settings.background_color || '#151b2e'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Цвет шапки</label>
+                                            <input type="color" id="headerColor" value="${settings.header_color || '#667eea'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Текст шапки</label>
+                                            <input type="color" id="headerTextColor" value="${settings.header_text_color || '#ffffff'}" onchange="updatePreview()">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Область сообщений</label>
+                                            <input type="color" id="messagesAreaColor" value="${settings.messages_area_color || '#0a0e27'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Поле ввода</label>
+                                            <input type="color" id="inputBackgroundColor" value="${settings.input_background_color || '#0a0e27'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Цвет границ</label>
+                                            <input type="color" id="borderColor" value="${settings.border_color || '#1e2742'}" onchange="updatePreview()">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="color-section">
+                                    <h4>Сообщения</h4>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Сообщения пользователя</label>
+                                            <input type="color" id="userMessageColor" value="${settings.user_message_color || '#667eea'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Сообщения бота</label>
+                                            <input type="color" id="botMessageColor" value="${settings.bot_message_color || '#1e2742'}" onchange="updatePreview()">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Цвет текста</label>
+                                            <input type="color" id="textColor" value="${settings.text_color || '#e0e6ed'}" onchange="updatePreview()">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="color-section">
+                                    <h4>Тексты</h4>
+                                    <div class="form-group">
+                                        <label>Приветственное сообщение</label>
+                                        <textarea id="welcomeMessage" rows="2" onchange="updatePreview()">${settings.welcome_message || 'Привет! Чем могу помочь?'}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Текст расширенного сообщения</label>
+                                        <input type="text" id="expandedMessageText" value="${settings.expanded_message_text || 'Нужна помощь?'}" onchange="updatePreview()">
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary" style="width: 100%; display:flex;align-items:center;justify-content:center;gap:8px;" onclick="saveWidgetSettings()">${icons.save} Сохранить настройки</button>
+                            </div>
+                        </div>
+
+                        <div class="widget-preview-section">
+                            <div class="content-card" style="position: sticky; top: 24px;">
+                                <h3 style="margin-bottom: 16px;">Предпросмотр</h3>
+                                <div class="preview-container">
+                                    ${generateWidgetPreview()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Инициализируем предпросмотр
+                setTimeout(() => updatePreview(), 100);
+            } catch (error) {
+                pageContent.innerHTML = `<div class="content-card"><div class="error-message">Ошибка загрузки: ${error.message}</div></div>`;
+            }
+        }
+
+        function generatePresetButtons() {
+            const presets = [
+                { name: 'dark', label: 'Темная', colors: ['#667eea', '#764ba2'] },
+                { name: 'light', label: 'Светлая', colors: ['#4f46e5', '#7c3aed'] },
+                { name: 'blue', label: 'Синяя', colors: ['#3b82f6', '#1d4ed8'] },
+                { name: 'green', label: 'Зеленая', colors: ['#10b981', '#059669'] },
+                { name: 'red', label: 'Красная', colors: ['#ef4444', '#dc2626'] },
+                { name: 'orange', label: 'Оранжевая', colors: ['#f97316', '#ea580c'] },
+                { name: 'purple', label: 'Фиолетовая', colors: ['#a855f7', '#9333ea'] },
+                { name: 'teal', label: 'Бирюзовая', colors: ['#14b8a6', '#0d9488'] }
+            ];
+
+            return presets.map(preset => `
+                <button class="preset-btn" onclick="applyPreset('${preset.name}')">
+                    <div class="preset-color" style="background: linear-gradient(135deg, ${preset.colors[0]} 0%, ${preset.colors[1]} 100%);"></div>
+                    <span>${preset.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function generateWidgetPreview() {
+            return `
+                <div id="preview-widget" class="widget-preview">
+                    <div id="preview-message" class="preview-expanded-message" style="display:none;">Нужна помощь?</div>
+                    <div id="preview-button" class="preview-button" onclick="togglePreviewChat()" style="display:none;">
+                        ${icons.chat}
+                    </div>
+                    <div id="preview-chat-window" class="preview-chat-window" style="display:flex;">
+                        <div id="preview-header" class="preview-header">
+                            <h3>AI Ассистент</h3>
+                            <button onclick="togglePreviewChat()">${icons.close}</button>
+                        </div>
+                        <div id="preview-messages" class="preview-messages">
+                            <div><div class="preview-bot-message">Привет! Чем могу помочь?</div></div>
+                            <div style="text-align: right;"><div class="preview-user-message">Расскажи о тарифах</div></div>
+                            <div><div class="preview-bot-message">С удовольствием! У нас есть несколько тарифных планов...</div></div>
+                        </div>
+                        <div class="preview-input-container">
+                            <input type="text" placeholder="Введите сообщение...">
+                            <button>${icons.send}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const widgetPresets = {
+            dark: { button_color: '#667eea', secondary_color: '#764ba2', message_color: '#667eea', header_color: '#667eea', user_message_color: '#667eea' },
+            light: { button_color: '#4f46e5', secondary_color: '#7c3aed', message_color: '#4f46e5', header_color: '#4f46e5', user_message_color: '#4f46e5' },
+            blue: { button_color: '#3b82f6', secondary_color: '#1d4ed8', message_color: '#3b82f6', header_color: '#3b82f6', user_message_color: '#3b82f6' },
+            green: { button_color: '#10b981', secondary_color: '#059669', message_color: '#10b981', header_color: '#10b981', user_message_color: '#10b981' },
+            red: { button_color: '#ef4444', secondary_color: '#dc2626', message_color: '#ef4444', header_color: '#ef4444', user_message_color: '#ef4444' },
+            orange: { button_color: '#f97316', secondary_color: '#ea580c', message_color: '#f97316', header_color: '#f97316', user_message_color: '#f97316' },
+            purple: { button_color: '#a855f7', secondary_color: '#9333ea', message_color: '#a855f7', header_color: '#a855f7', user_message_color: '#a855f7' },
+            teal: { button_color: '#14b8a6', secondary_color: '#0d9488', message_color: '#14b8a6', header_color: '#14b8a6', user_message_color: '#14b8a6' }
+        };
+
+        const baseThemes = {
+            dark: { background_color: '#151b2e', messages_area_color: '#0a0e27', input_background_color: '#0a0e27', border_color: '#1e2742', header_text_color: '#ffffff', bot_message_color: '#1e2742', text_color: '#e0e6ed' },
+            light: { background_color: '#ffffff', messages_area_color: '#f9fafb', input_background_color: '#ffffff', border_color: '#e5e7eb', header_text_color: '#ffffff', bot_message_color: '#f3f4f6', text_color: '#1f2937' }
+        };
+
+        function applyPreset(presetName) {
+            const preset = widgetPresets[presetName];
+            if (!preset) return;
+
+            document.getElementById('buttonColor').value = preset.button_color;
+            document.getElementById('secondaryColor').value = preset.secondary_color;
+            document.getElementById('messageColor').value = preset.message_color;
+            document.getElementById('headerColor').value = preset.header_color;
+            document.getElementById('userMessageColor').value = preset.user_message_color;
+
+            updatePreview();
+        }
+
+        function toggleTheme() {
+            const isLight = document.getElementById('themeToggle').checked;
+            const theme = isLight ? baseThemes.light : baseThemes.dark;
+
+            document.getElementById('backgroundColor').value = theme.background_color;
+            document.getElementById('messagesAreaColor').value = theme.messages_area_color;
+            document.getElementById('inputBackgroundColor').value = theme.input_background_color;
+            document.getElementById('borderColor').value = theme.border_color;
+            document.getElementById('headerTextColor').value = theme.header_text_color;
+            document.getElementById('botMessageColor').value = theme.bot_message_color;
+            document.getElementById('textColor').value = theme.text_color;
+
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const buttonColor = document.getElementById('buttonColor')?.value || '#667eea';
+            const secondaryColor = document.getElementById('secondaryColor')?.value || '#764ba2';
+            const messageColor = document.getElementById('messageColor')?.value || '#667eea';
+            const backgroundColor = document.getElementById('backgroundColor')?.value || '#151b2e';
+            const headerColor = document.getElementById('headerColor')?.value || '#667eea';
+            const headerTextColor = document.getElementById('headerTextColor')?.value || '#ffffff';
+            const messagesAreaColor = document.getElementById('messagesAreaColor')?.value || '#0a0e27';
+            const inputBackgroundColor = document.getElementById('inputBackgroundColor')?.value || '#0a0e27';
+            const borderColor = document.getElementById('borderColor')?.value || '#1e2742';
+            const userMessageColor = document.getElementById('userMessageColor')?.value || '#667eea';
+            const botMessageColor = document.getElementById('botMessageColor')?.value || '#1e2742';
+            const textColor = document.getElementById('textColor')?.value || '#e0e6ed';
+            const welcomeMessage = document.getElementById('welcomeMessage')?.value || 'Привет! Чем могу помочь?';
+            const expandedMessageText = document.getElementById('expandedMessageText')?.value || 'Нужна помощь?';
+            const chatTitle = document.getElementById('chatTitle')?.value || 'AI Ассистент';
+
+            const previewMessage = document.getElementById('preview-message');
+            const previewButton = document.getElementById('preview-button');
+            const previewHeader = document.getElementById('preview-header');
+            const previewChatWindow = document.getElementById('preview-chat-window');
+            const previewMessages = document.getElementById('preview-messages');
+
+            if (previewMessage) {
+                previewMessage.style.background = `linear-gradient(135deg, ${messageColor} 0%, ${secondaryColor} 100%)`;
+                previewMessage.textContent = expandedMessageText;
+            }
+
+            if (previewButton) {
+                previewButton.style.background = `linear-gradient(135deg, ${buttonColor} 0%, ${secondaryColor} 100%)`;
+            }
+
+            if (previewHeader) {
+                previewHeader.style.background = `linear-gradient(135deg, ${headerColor} 0%, ${secondaryColor} 100%)`;
+                previewHeader.style.color = headerTextColor;
+                const title = previewHeader.querySelector('h3');
+                if (title) title.textContent = chatTitle;
+                const closeBtn = previewHeader.querySelector('button');
+                if (closeBtn) closeBtn.style.color = headerTextColor;
+            }
+
+            if (previewChatWindow) {
+                previewChatWindow.style.backgroundColor = backgroundColor;
+                previewChatWindow.style.borderColor = borderColor;
+            }
+
+            if (previewMessages) {
+                previewMessages.style.backgroundColor = messagesAreaColor;
+
+                const botMessages = previewMessages.querySelectorAll('.preview-bot-message');
+                botMessages.forEach(msg => {
+                    msg.style.backgroundColor = botMessageColor;
+                    msg.style.color = textColor;
+                    msg.style.borderColor = borderColor;
+                });
+
+                const firstBotMessage = botMessages[0];
+                if (firstBotMessage) firstBotMessage.textContent = welcomeMessage;
+
+                const userMessage = previewMessages.querySelector('.preview-user-message');
+                if (userMessage) {
+                    userMessage.style.background = `linear-gradient(135deg, ${userMessageColor} 0%, ${secondaryColor} 100%)`;
+                }
+            }
+
+            const inputContainer = document.querySelector('.preview-input-container');
+            if (inputContainer) {
+                inputContainer.style.backgroundColor = backgroundColor;
+                inputContainer.style.borderTopColor = borderColor;
+
+                const input = inputContainer.querySelector('input');
+                if (input) {
+                    input.style.backgroundColor = inputBackgroundColor;
+                    input.style.borderColor = borderColor;
+                    input.style.color = textColor;
+                }
+
+                const sendButton = inputContainer.querySelector('button');
+                if (sendButton) {
+                    sendButton.style.background = `linear-gradient(135deg, ${buttonColor} 0%, ${secondaryColor} 100%)`;
+                }
+            }
+        }
+
+        async function saveWidgetSettings() {
+            const settings = {
+                chat_title: document.getElementById('chatTitle').value,
+                primary_color: document.getElementById('buttonColor').value,
+                button_color: document.getElementById('buttonColor').value,
+                secondary_color: document.getElementById('secondaryColor').value,
+                message_color: document.getElementById('messageColor').value,
+                background_color: document.getElementById('backgroundColor').value,
+                header_color: document.getElementById('headerColor').value,
+                header_text_color: document.getElementById('headerTextColor').value,
+                messages_area_color: document.getElementById('messagesAreaColor').value,
+                input_background_color: document.getElementById('inputBackgroundColor').value,
+                border_color: document.getElementById('borderColor').value,
+                user_message_color: document.getElementById('userMessageColor').value,
+                bot_message_color: document.getElementById('botMessageColor').value,
+                text_color: document.getElementById('textColor').value,
+                welcome_message: document.getElementById('welcomeMessage').value,
+                expanded_message_text: document.getElementById('expandedMessageText').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/widget/settings`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                if (response.ok) {
+                    alert('Настройки сохранены!');
+                } else {
+                    alert('Ошибка сохранения настроек');
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        // ==================== SECRETS PAGE ====================
+        async function renderSecretsPage(projectId) {
+            const pageContent = document.getElementById('pageContent');
+            pageContent.innerHTML = '<div class="content-card"><div class="loading">Загрузка секретов...</div></div>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}/secrets`, { credentials: 'same-origin' });
+                const data = await response.json();
+
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">API Ключи</h3>
+                        <div class="form-group">
+                            <label>OpenAI API Key</label>
+                            <input type="password" id="openaiKey" placeholder="${data.openai_key_masked || 'sk-...'}">
+                            <small style="color: var(--text-muted);">${data.has_openai_key ? 'Ключ установлен. Оставьте пустым, чтобы не изменять' : 'Ключ не установлен'}</small>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveSecrets()" style="display:flex;align-items:center;gap:8px;">${icons.save} Сохранить</button>
+                    </div>
+
+                    <div class="content-card" style="margin-top: 24px;">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">Вебхуки</h3>
+                        <div class="form-group">
+                            <label>Bitrix24 Webhook URL</label>
+                            <input type="text" id="bitrixWebhook" value="${data.bitrix_webhook_url || ''}" placeholder="https://your-bitrix.bitrix24.ru/rest/...">
+                            <small style="color: var(--text-muted);">Для передачи контактов в Bitrix24 CRM</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Кастомный Webhook URL</label>
+                            <input type="text" id="webhookUrl" value="${data.custom_webhook_url || ''}" placeholder="https://your-server.com/webhook">
+                            <small style="color: var(--text-muted);">Для отправки данных о новых контактах на свой сервер</small>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveWebhooks()" style="display:flex;align-items:center;gap:8px;">${icons.save} Сохранить</button>
+                    </div>
+
+                    <div class="content-card" style="margin-top: 24px;">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">CORS настройки</h3>
+                        <div class="form-group">
+                            <label>Разрешенные домены (по одному на строку)</label>
+                            <textarea id="corsOrigins" rows="5" placeholder="https://example.com&#10;https://test.com">${data.allowed_origins || '*'}</textarea>
+                            <small style="color: var(--text-muted);">* разрешит все домены (по умолчанию)</small>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveCORS()" style="display:flex;align-items:center;gap:8px;">${icons.save} Сохранить</button>
+                    </div>
+                `;
+            } catch (error) {
+                pageContent.innerHTML = `<div class="content-card"><div class="error-message">Ошибка загрузки: ${error.message}</div></div>`;
+            }
+        }
+
+        async function saveSecrets() {
+            const projectId = router.currentProject;
+            const data = {
+                openai_api_key: document.getElementById('openaiKey').value || null
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}/secrets`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('API ключ сохранён!');
+                    renderSecretsPage(projectId);
+                } else {
+                    const err = await response.json();
+                    alert('Ошибка: ' + (err.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function saveWebhooks() {
+            const projectId = router.currentProject;
+            const data = {
+                bitrix_webhook_url: document.getElementById('bitrixWebhook').value,
+                custom_webhook_url: document.getElementById('webhookUrl').value
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}/secrets`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Вебхуки сохранены!');
+                } else {
+                    const err = await response.json();
+                    alert('Ошибка: ' + (err.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function saveCORS() {
+            const projectId = router.currentProject;
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}/cors`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ allowed_origins: document.getElementById('corsOrigins').value })
+                });
+
+                if (response.ok) {
+                    alert('CORS настройки сохранены!');
+                } else {
+                    const err = await response.json();
+                    alert('Ошибка: ' + (err.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        // ==================== SETTINGS PAGE ====================
+        async function renderSettingsPage(projectId) {
+            const pageContent = document.getElementById('pageContent');
+            pageContent.innerHTML = '<div class="content-card"><div class="loading">Загрузка настроек...</div></div>';
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}`, { credentials: 'same-origin' });
+                const project = await response.json();
+
+                pageContent.innerHTML = `
+                    <div class="content-card">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">Смена пароля</h3>
+                        <form id="passwordForm">
+                            <div class="form-group">
+                                <label>Текущий пароль</label>
+                                <input type="password" id="currentPassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Новый пароль</label>
+                                <input type="password" id="newPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label>Подтвердите новый пароль</label>
+                                <input type="password" id="confirmPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="display:flex;align-items:center;gap:8px;">${icons.save} Изменить пароль</button>
+                        </form>
+                    </div>
+
+                    <div class="content-card" style="margin-top: 24px;">
+                        <h3 style="margin-bottom: 16px; color: var(--text);">Настройки проекта</h3>
+                        <div class="form-group">
+                            <label>Название проекта</label>
+                            <input type="text" id="projectName" value="${project.name || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Описание</label>
+                            <textarea id="projectDescription" rows="3">${project.description || ''}</textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveProjectSettings()" style="display:flex;align-items:center;gap:8px;">${icons.save} Сохранить</button>
+                    </div>
+                `;
+
+                document.getElementById('passwordForm').addEventListener('submit', changePassword);
+            } catch (error) {
+                pageContent.innerHTML = `<div class="content-card"><div class="error-message">Ошибка загрузки: ${error.message}</div></div>`;
+            }
+        }
+
+        async function changePassword(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                alert('Новые пароли не совпадают');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/change-password`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Пароль успешно изменен!');
+                    document.getElementById('passwordForm').reset();
+                } else {
+                    alert('Ошибка: ' + (data.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function saveProjectSettings() {
+            const projectId = router.currentProject;
+            const name = document.getElementById('projectName').value;
+            const description = document.getElementById('projectDescription').value;
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+
+                if (response.ok) {
+                    alert('Настройки проекта сохранены!');
+                    // Обновляем кэш
+                    const idx = projectsCache.findIndex(p => p.id == projectId);
+                    if (idx !== -1) {
+                        projectsCache[idx].name = name;
+                        projectsCache[idx].description = description;
+                    }
+                } else {
+                    const data = await response.json();
+                    alert('Ошибка: ' + (data.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        // Переключение превью чата
+        function togglePreviewChat() {
+            const chatWindow = document.getElementById('preview-chat-window');
+            const previewButton = document.getElementById('preview-button');
+            const previewMessage = document.getElementById('preview-message');
+            if (!chatWindow) return;
+
+            if (chatWindow.style.display === 'none') {
+                chatWindow.style.display = 'flex';
+                if (previewButton) previewButton.style.display = 'none';
+                if (previewMessage) previewMessage.style.display = 'none';
+            } else {
+                chatWindow.style.display = 'none';
+                if (previewButton) previewButton.style.display = 'flex';
+                if (previewMessage) previewMessage.style.display = 'block';
+            }
+        }
+
+        // Создание нового проекта
+        async function showCreateProjectDialog() {
+            const name = prompt('Название нового проекта:');
+            if (!name) return;
+
+            const description = prompt('Описание проекта (необязательно):') || '';
+
+            try {
+                const response = await fetch(`${API_URL}/api/projects`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+
+                if (response.ok) {
+                    alert('Проект создан!');
+                    renderProjectsList();
+                } else {
+                    const data = await response.json();
+                    alert('Ошибка: ' + (data.detail || 'Неизвестная ошибка'));
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        // Initialize
+        router.handleRoute();
+    </script>
+</body>
+</html>
